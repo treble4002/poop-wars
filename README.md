@@ -18,3 +18,15 @@ On Render, set `DATABASE_URL` to a Postgres connection string. The app then stor
 - **Tic-Tac-Toilet**: 🧻 vs 💩, take turns
 - **Connect Four-Flush**: drop pieces, get 4 in a row
 - **Flush Frenzy**: tap 30 times as fast as you can. Each player plays on their own time. You can't see the other player's score until both of you have played. The faster time wins.
+
+## Games (6)
+Tic-Tac-Toilet, Connect Four-Flush, Flush Frenzy, Stall Wars (dots & boxes 5x5), Sink the Stink (battleship 8x8, ships 4/3/3/2, random placement), Hang-Ten TP (hangman, challenger may set the word; fewest misses wins).
+
+## Plunger Bot 🪠
+Every game can be played against Plunger Bot (Easy/Hard). Bot games resolve instantly and count only on a separate vs-Bot record, never in rankings.
+
+## Leaderboards
+Per-game + overall, globally and per circle, plus circle leaders per game.
+
+## Tests
+`node test.js` (or `./test.sh`); set `BASE=https://...` to test a live URL.
