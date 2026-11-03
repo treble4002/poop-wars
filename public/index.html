@@ -1,0 +1,59 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Poop Wars 💩</title><style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:#f6efe3;color:#3b2616;max-width:480px;margin:auto;padding:12px 12px 80px}
+h1{text-align:center;margin:8px 0}h2{margin:16px 0 8px}.card{background:#fff;border-radius:16px;padding:14px;margin:10px 0;box-shadow:0 2px 6px #0002}
+button{background:#7b4a26;color:#fff;border:0;border-radius:12px;padding:12px 16px;font-size:16px;margin:4px 2px;cursor:pointer}button.alt{background:#d9c2a3;color:#3b2616}
+input{font-size:16px;padding:12px;border-radius:12px;border:2px solid #d9c2a3;width:100%;margin:4px 0}
+.row{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #eee}
+.ttt{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.ttt div{aspect-ratio:1;background:#e9dcc8;border-radius:12px;font-size:44px;display:flex;align-items:center;justify-content:center}
+.c4{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;background:#5d8bb0;padding:6px;border-radius:12px}.c4 div{aspect-ratio:1;background:#f6efe3;border-radius:50%;font-size:26px;display:flex;align-items:center;justify-content:center}
+.big{font-size:20px;text-align:center}.err{color:#b00}.tap{font-size:120px;user-select:none;text-align:center;touch-action:manipulation}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;justify-content:space-around;padding:6px;box-shadow:0 -2px 6px #0002}nav button{flex:1}
+</style></head><body><h1>💩 Poop Wars 🚽</h1><div id="app"></div><nav id="nav" style="display:none"><button onclick="go('home')">🏠 Home</button><button onclick="go('lb')">🏆 Global</button></nav>
+<script>
+let T=localStorage.pwToken,me=null,poll=null;const $=document.getElementById('app');
+const api=async(p,b)=>{const r=await fetch('/api/'+p,{method:b?'POST':'GET',headers:{'Content-Type':'application/json','x-token':T||''},body:b&&JSON.stringify(b)});const j=await r.json();if(!r.ok)throw Error(j.error);return j};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+const err=e=>alert('🚫 '+e.message);
+const NAMES={ttt:'Tic-Tac-Toilet',c4:'Connect Four-Flush',flush:'Flush Frenzy'};
+async function go(v,a){clearInterval(poll);try{
+ if(!T)return signup();me=await api('me');document.getElementById('nav').style.display='flex';
+ if(v==='circle')return circle(a);if(v==='game')return game(a);if(v==='lb')return lb();home()}catch(e){if(e.message.includes('Sign up')){T=null;localStorage.removeItem('pwToken');signup()}else err(e)}}
+function signup(){$.innerHTML=`<div class="card big">Head-to-head mini games for your bathroom break.<br><br><input id=n placeholder="Pick a silly name (e.g. Sir Plops)" maxlength=20><button onclick="doSignup()">Enter the stall 🚪</button></div>`}
+async function doSignup(){try{const u=await api('signup',{name:n.value});T=u.token;localStorage.pwToken=T;go('home')}catch(e){err(e)}}
+async function home(){const games=await api('games');
+ const mine=g=>g.status==='active'&&(g.type==='flush'?g.scores[me.id]===undefined:g.players[g.turn]===me.id);
+ $.innerHTML=`<div class="card">Hi <b>${esc(me.name)}</b> 👋 Record: ${me.wins}W ${me.losses}L ${me.draws}D</div>
+ <h2>🎮 Your games</h2>${games.map(g=>`<div class="card row" onclick="go('game','${g.id}')"><span>${NAMES[g.type]}<br><small>vs ${esc(g.names.find((x,i)=>g.players[i]!==me.id))}</small></span><b>${g.status==='done'?(g.winner===me.id?'🏆 Won':g.winner==='draw'?'🤝 Draw':'💀 Lost'):mine(g)?'👉 Your turn':'⏳ Waiting'}</b></div>`).join('')||'<div class=card>No games yet. Open a circle and challenge someone!</div>'}
+ <h2>👨‍👩‍👧 Your circles</h2>${me.circleList.map(c=>`<div class="card row" onclick="go('circle','${c.id}')"><b>${esc(c.name)}</b><span>Code: ${c.code}</span></div>`).join('')}
+ <div class=card><input id=cn placeholder="New circle name (e.g. The Throne Room)"><button onclick="mk()">Create circle</button><hr><input id=cc placeholder="Invite code" maxlength=6 style="text-transform:uppercase"><button class=alt onclick="jn()">Join circle</button></div>`;
+ poll=setInterval(async()=>{const g2=await api('games');if(JSON.stringify(g2.map(g=>g.updated))!==JSON.stringify(games.map(g=>g.updated)))home()},5000)}
+async function mk(){try{const c=await api('circles',{name:cn.value||'My Circle'});go('circle',c.id)}catch(e){err(e)}}
+async function jn(){try{const c=await api('circles/join',{code:cc.value});go('circle',c.id)}catch(e){err(e)}}
+async function circle(id){const c=await api('circle?id='+id);
+ $.innerHTML=`<div class="card big"><b>${esc(c.name)}</b><br>Invite code: <b style="font-size:28px;letter-spacing:3px">${c.code}</b><br><button class=alt onclick="navigator.clipboard&&navigator.clipboard.writeText('Join my Poop Wars circle! Code: ${c.code} — '+location.origin);this.textContent='Copied!'">📋 Copy invite</button></div>
+ <h2>🏆 Circle leaderboard</h2><div class=card>${c.members.map((m,i)=>`<div class=row><span>${['👑','🥈','🥉'][i]||'🧻'} ${esc(m.name)} <small>${m.w}W ${m.l}L ${m.d}D</small></span>${m.id!==me.id?`<span><button onclick="ch('${c.id}','${m.id}','ttt')">#️⃣</button><button onclick="ch('${c.id}','${m.id}','c4')">🔴</button><button onclick="ch('${c.id}','${m.id}','flush')">🚽</button></span>`:'<small>(you)</small>'}</div>`).join('')}
+ <small>Challenge: #️⃣ Tic-Tac-Toilet · 🔴 Connect Four-Flush · 🚽 Flush Frenzy</small></div>`}
+async function ch(c,o,t){try{const g=await api('challenge',{circleId:c,opponentId:o,type:t});go('game',g.id)}catch(e){err(e)}}
+async function game(id){const g=await api('game?id='+id);const mi=g.players.indexOf(me.id),opp=esc(g.names[1-mi]);
+ let status=g.status==='done'?(g.winner===me.id?'🏆 You won! Flush with pride.':g.winner==='draw'?'🤝 Draw. Nobody flushed.':'💀 You lost. Wipe away the tears.'):'';
+ let h=`<div class="card big"><b>${NAMES[g.type]}</b><br>You ${mi?'💩':'🧻'} vs ${opp} ${mi?'🧻':'💩'}</div>`;
+ if(g.type==='flush'){const mine=g.scores[me.id];
+  if(g.status==='done')h+=`<div class="card big">${status}<br>You: ${(g.scores[me.id]/1000).toFixed(2)}s<br>${opp}: ${(g.scores[g.players[1-mi]]/1000).toFixed(2)}s</div>`;
+  else if(mine!==undefined)h+=`<div class="card big">Your time is locked in 🔒<br>Waiting for ${opp} to play…</div>`;
+  else h+=`<div class="card big">Tap the toilet <b>30 times</b> as fast as you can to flush the poop! Fastest wins.<br><button onclick="flush('${g.id}')">Start! 🚽</button></div>`;
+ }else{const my=g.status==='active'&&g.turn===mi;
+  h+=`<div class="card big">${status||(my?'👉 Your turn!':'⏳ Waiting for '+opp+'… (auto-refreshing)')}</div>`;
+  h+=g.type==='ttt'?`<div class="card ttt">${g.board.map((x,i)=>`<div onclick="mv('${g.id}',${i})">${x||''}</div>`).join('')}</div>`
+   :`<div class="card c4">${g.board.map((x,i)=>`<div onclick="mv('${g.id}',${i%7})">${x||''}</div>`).join('')}</div><small>Tap any spot in a column to drop your piece.</small>`}
+ if(g.status==='done')h+=`<button onclick="ch('${g.circleId}','${g.players[1-mi]}','${g.type}')">🔁 Rematch</button>`;
+ $.innerHTML=h;if(g.status==='active')poll=setInterval(async()=>{const g2=await api('game?id='+id);if(g2.updated!==g.updated)game(id)},3000)}
+async function mv(id,p){try{await api('move',{gameId:id,pos:p});game(id)}catch(e){err(e)}}
+function flush(id){let n=0,t0=0;const N=30;$.innerHTML=`<div class="card big" id=ct>Get ready…</div><div class="tap" id=tp>🚽</div>`;
+ let c=3;const iv=setInterval(()=>{ct.textContent=c?c+'…':'GO! TAP!';if(!c--){clearInterval(iv);t0=performance.now();
+  tp.onpointerdown=async e=>{e.preventDefault();n++;tp.textContent=n%2?'💩':'🚽';ct.textContent=`${N-n} to go! ${((performance.now()-t0)/1000).toFixed(2)}s`;
+   if(n>=N){tp.onpointerdown=null;const ms=Math.round(performance.now()-t0);tp.textContent='🌊';ct.textContent=`FLUSHED in ${(ms/1000).toFixed(2)}s!`;
+    try{await api('move',{gameId:id,ms})}catch(e){err(e)}setTimeout(()=>game(id),1500)}}}},700)}
+async function lb(){const l=await api('leaderboard');$.innerHTML=`<h2>🌍 Global Throne Rankings</h2><div class=card>${l.map((x,i)=>`<div class=row><span>${['👑','🥈','🥉'][i]||(i+1)+'.'} ${esc(x.name)}</span><span>${x.w}W ${x.l}L ${x.d}D</span></div>`).join('')||'Nobody has played yet.'}</div>`}
+go('home');
+</script></body></html>
