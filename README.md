@@ -20,7 +20,7 @@ On Render, set `DATABASE_URL` to a Postgres connection string. The app then stor
 - **Flush Frenzy**: tap 30 times as fast as you can. Each player plays on their own time. You can't see the other player's score until both of you have played. The faster time wins.
 
 ## Games (6)
-Tic-Tac-Toilet, Connect Four-Flush, Flush Frenzy, Stall Wars (dots & boxes 5x5), Sink the Stink (battleship 8x8, ships 4/3/3/2, random placement), Hang-Ten TP (hangman, challenger may set the word; fewest misses wins).
+Tic-Tac-Toilet, Connect Four-Flush, Follow the Flush (4-pad memory pattern race: same server-made pattern for both players, longest correct pattern wins, faster total input time breaks ties; Flush Frenzy was removed and its old data dropped), Stall Wars (dots & boxes 5x5), Sink the Stink (battleship 8x8, ships 4/3/3/2, random placement), Hang-Ten TP (hangman, challenger may set the word; fewest misses wins).
 
 ## Plunger Bot 🪠
 Every game can be played against Plunger Bot (Easy/Hard). Bot games resolve instantly and count only on a separate vs-Bot record, never in rankings.

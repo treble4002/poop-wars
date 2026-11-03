@@ -12,7 +12,7 @@ const id=(n=8)=>crypto.randomBytes(n).toString('hex');
 const code=()=>Array.from({length:6},()=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.random()*32|0]).join('');
 const send=(res,s,o)=>{res.writeHead(s,{'Content-Type':'application/json'});res.end(JSON.stringify(o))};
 const rnd=a=>a[Math.random()*a.length|0];
-const BOT='bot', TYPES=['ttt','c4','flush','dots','sink','hang'];
+const BOT='bot', TYPES=['ttt','c4','follow','dots','sink','hang'];
 function ensureBot(){db.users[BOT]={id:BOT,name:'Plunger Bot 🪠',token:'bot-'+id(16),circles:[]}}
 
 // ---------- Tic-Tac-Toilet ----------
@@ -90,15 +90,26 @@ function hangBot(g,me,hard){const gs=g.guesses[me],w=g.words[me];
  const best=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];return best?best[0]:FREQ.split('').find(l=>!gs.includes(l))}
 
 // ---------- shared game engine ----------
+// ---------- Follow the Flush (4-pad memory race) ----------
+const SEQMAX=40,followBetter=(a,b)=>a.len!==b.len?a.len>b.len:a.ms<b.ms;
+function followBot(hard){const len=hard?11+(Math.random()*4|0):4+(Math.random()*3|0);let ms=0;
+ for(let r=1;r<=len;r++)for(let k=0;k<r;k++)ms+=hard?280+Math.random()*180:420+Math.random()*260;return{len,ms:Math.round(ms)}}
+function trackBest(g){if(g.type!=='follow'||g.players.includes(BOT))return;for(const p of g.players){const u=db.users[p],r=g.res[p];if(!r)continue;
+ const up=o=>{if(!o.follow||followBetter(r,o.follow))o.follow={len:r.len,ms:r.ms}};up(u.best=u.best||{});
+ if(g.circleId){u.circleBest=u.circleBest||{};up(u.circleBest[g.circleId]=u.circleBest[g.circleId]||{})}}}
 function bump(o,type,k){for(const t of[type,'all']){o[t]=o[t]||{w:0,l:0,d:0};o[t][k]++}}
-function finish(g,w){g.status='done';g.winner=w;const vsBot=g.players.includes(BOT);
+function finish(g,w){g.status='done';g.winner=w;trackBest(g);const vsBot=g.players.includes(BOT);
  for(const p of g.players){if(p===BOT)continue;const u=db.users[p],k=w==='draw'?'d':w===p?'w':'l';
   if(vsBot)bump(u.botStats=u.botStats||{},g.type,k);
   else{bump(u.stats=u.stats||{},g.type,k);if(g.circleId){u.circleStats=u.circleStats||{};bump(u.circleStats[g.circleId]=u.circleStats[g.circleId]||{},g.type,k)}}}}
 function applyMove(g,me,b){const t=g.type,pid=g.players[me];
  if(g.status!=='active')return'Game over';
- if(t==='flush'){if(g.scores[pid]!=null)return'Already played';const ms=Number(b.ms);if(!(ms>=1500&&ms<120000))return'Suspicious time 🤨';g.scores[pid]=Math.round(ms);
-  if(Object.keys(g.scores).length===2){const[a,c]=g.players.map(p=>g.scores[p]);finish(g,a===c?'draw':a<c?g.players[0]:g.players[1])}return null}
+ if(t==='follow'){if(g.res[pid])return'Already played';
+  if(b.start){if(pid!==BOT&&!g.started[pid])g.started[pid]=Date.now();return null}
+  const len=Number(b.len),ms=Math.round(Number(b.ms));if(!(Number.isInteger(len)&&len>=0&&len<=SEQMAX))return'Bad length';
+  if(pid!==BOT){if(!g.started[pid])return'Start first';if(len>0&&(!(ms>=len*(len+1)/2*80)||ms>Date.now()-g.started[pid]+2000))return'Suspicious time 🤨'}
+  g.res[pid]={len,ms:len?ms:0};
+  if(Object.keys(g.res).length===2){const[a,c]=g.players.map(p=>g.res[p]);finish(g,a.len===c.len&&a.ms===c.ms?'draw':followBetter(a,c)?g.players[0]:g.players[1])}return null}
  if(t==='hang'){const l=String(b.letter||'').toUpperCase();if(!/^[A-Z]$/.test(l))return'Pick a letter';if(hangState(g,me).over)return'Your round is over';
   if(g.guesses[me].includes(l))return'Already guessed';g.guesses[me].push(l);const s=[0,1].map(i=>hangState(g,i));
   if(s[0].over&&s[1].over){const a=hangScore(s[0]),c=hangScore(s[1]);finish(g,a===c?'draw':a<c?g.players[0]:g.players[1])}return null}
@@ -118,28 +129,28 @@ function applyMove(g,me,b){const t=g.type,pid=g.players[me];
   if(opp.flat().every(y=>g.shots[me][y]==='hit'))finish(g,pid);else g.turn=1-me;return null}
  return'Unknown game'}
 function botMove(g,bi){const hard=g.diff==='hard',t=g.type;
- if(t==='flush')return g.scores[BOT]!=null?null:{ms:hard?4300+Math.random()*1000:7000+Math.random()*2500};
+ if(t==='follow')return g.res[BOT]?null:followBot(hard);
  if(t==='hang')return hangState(g,bi).over?null:{letter:hangBot(g,bi,hard)};
  if(t==='sink'&&g.phase==='setup')return g.ships[bi]?null:{ships:'random'};
  if(g.turn!==bi)return null;
  return{pos:{ttt:tttBot,c4:c4Bot,dots:dotsBot,sink:sinkBot}[t](g,bi,hard)}}
 function botAct(g){const bi=g.players.indexOf(BOT);if(bi<0)return;for(let n=0;n<300&&g.status==='active';n++){const m=botMove(g,bi);if(!m)return;const e=applyMove(g,bi,m);if(e){console.error('bot error',e);return}}}
 function myTurn(g,me){if(g.status!=='active')return false;const t=g.type;
- if(t==='flush')return g.scores[g.players[me]]==null;if(t==='hang')return!hangState(g,me).over;
+ if(t==='follow')return!g.res[g.players[me]];if(t==='hang')return!hangState(g,me).over;
  if(t==='sink'&&g.phase==='setup')return!g.ships[me];return g.turn===me}
 function view(g,uid){const me=g.players.indexOf(uid),o={id:g.id,type:g.type,circleId:g.circleId,players:g.players,names:g.players.map(p=>db.users[p]?.name),
  turn:g.turn,status:g.status,winner:g.winner,updated:g.updated,diff:g.diff,me,myTurn:myTurn(g,me),last:g.last,vsBot:g.players.includes(BOT)};
  const done=g.status==='done',t=g.type;
  if(t==='ttt'||t==='c4')o.board=g.board;
  if(t==='dots'){o.lines=g.lines;o.boxes=g.boxes}
- if(t==='flush')o.scores=done?g.scores:{[uid]:g.scores[uid]};
+ if(t==='follow'){o.res=done?g.res:{[uid]:g.res[uid]};o.started=!!g.started[uid];if(g.started[uid]||done)o.seq=g.seq;o.seqMax=SEQMAX}
  if(t==='sink'){o.phase=g.phase;o.placed=[!!g.ships[0],!!g.ships[1]];o.myShips=g.ships[me];o.myShots=g.shots[me];o.theirShots=g.shots[1-me];o.lastShot=g.lastShot;
   const opp=g.ships[1-me];o.sunkTheirs=opp?sunkShips(opp,g.shots[me]).map(k=>({k,cells:opp[k]})):[];if(done)o.theirShips=opp}
  if(t==='hang'){const s=hangState(g,me),w=g.words[me],gs=g.guesses[me];o.mask=[...w].map(l=>gs.includes(l)||s.over?l:'_');o.myGuesses=gs;o.myMiss=s.miss;o.myOver=s.over;o.solved=s.solved;
   const th=hangState(g,1-me);o.theirOver=th.over;o.maxMiss=MAXMISS;if(done){o.theirWord=g.words[1-me];o.theirMiss=th.miss;o.theirSolved=th.solved}}
  return o}
 const pub=u=>({id:u.id,name:u.name,stats:u.stats||{},botStats:u.botStats||{}});
-const rows=(list,type,get)=>list.map(u=>{const s=get(u)?.[type]||{w:0,l:0,d:0};return{id:u.id,name:u.name,...s}}).sort((a,b)=>b.w-a.w||a.l-b.l||a.name.localeCompare(b.name));
+const rows=(list,type,get,best)=>list.map(u=>{const s=get(u)?.[type]||{w:0,l:0,d:0},r={id:u.id,name:u.name,...s};if(type==='follow'&&best)r.best=best(u)?.follow||null;return r}).sort((a,b)=>b.w-a.w||a.l-b.l||a.name.localeCompare(b.name));
 const routes={
  'POST /api/signup':(b)=>{const n=String(b.name||'').trim().slice(0,20);if(!n)return[400,{error:'Name required'}];
   const u={id:id(),token:id(16),name:n,circles:[],stats:{},botStats:{}};db.users[u.id]=u;return[200,u]},
@@ -148,15 +159,15 @@ const routes={
  'POST /api/circles/join':(b,u)=>{const c=Object.values(db.circles).find(c=>c.code===String(b.code||'').toUpperCase().trim());
   if(!c)return[404,{error:'No circle with that code'}];if(!c.members.includes(u.id)){c.members.push(u.id);u.circles.push(c.id)}return[200,c]},
  'GET /api/circle':(b,u,q)=>{const c=db.circles[q.id];if(!c||!c.members.includes(u.id))return[404,{error:'Not found'}];
-  const ms=c.members.map(m=>db.users[m]),boards={};for(const t of['all',...TYPES])boards[t]=rows(ms,t,x=>x.circleStats?.[c.id]);
+  const ms=c.members.map(m=>db.users[m]),boards={};for(const t of['all',...TYPES])boards[t]=rows(ms,t,x=>x.circleStats?.[c.id],x=>x.circleBest?.[c.id]);
   return[200,{id:c.id,name:c.name,code:c.code,members:ms.map(m=>({id:m.id,name:m.name})),boards}]},
  'GET /api/leaderboard':(b,u,q)=>{const t=TYPES.includes(q.type)?q.type:'all';
-  return[200,rows(Object.values(db.users).filter(x=>x.id!==BOT),t,x=>x.stats).filter(x=>x.w+x.l+x.d).slice(0,50)]},
+  return[200,rows(Object.values(db.users).filter(x=>x.id!==BOT),t,x=>x.stats,x=>x.best).filter(x=>x.w+x.l+x.d).slice(0,50)]},
  'POST /api/challenge':(b,u)=>{if(!TYPES.includes(b.type))return[400,{error:'Bad game type'}];const vsBot=b.opponentId===BOT;let c=null;
   if(!vsBot){c=db.circles[b.circleId];const o=db.users[b.opponentId];if(!c||!o||!c.members.includes(u.id)||!c.members.includes(o.id)||o.id===u.id)return[400,{error:'Bad challenge'}]}
   let word=null;if(b.type==='hang'&&b.word){word=String(b.word).toUpperCase().trim();if(!/^[A-Z]{3,12}$/.test(word))return[400,{error:'Secret word must be 3-12 letters, no spaces'}]}
   const g={id:id(),type:b.type,circleId:c?c.id:null,players:[u.id,vsBot?BOT:b.opponentId],turn:0,status:'active',winner:null,created:Date.now(),updated:Date.now(),diff:vsBot?(b.difficulty==='hard'?'hard':'easy'):null};
-  if(g.type==='ttt')g.board=Array(9).fill(null);if(g.type==='c4')g.board=Array(42).fill(null);if(g.type==='flush')g.scores={};
+  if(g.type==='ttt')g.board=Array(9).fill(null);if(g.type==='c4')g.board=Array(42).fill(null);if(g.type==='follow'){g.seq=Array.from({length:SEQMAX},()=>crypto.randomInt(4));g.res={};g.started={}}
   if(g.type==='dots'){g.lines=Array(40).fill(null);g.boxes=Array(16).fill(null)}
   if(g.type==='sink'){g.phase='setup';g.ships=[null,null];g.shots=[{},{}]}
   if(g.type==='hang'){g.words=[rnd(WORDS),word||rnd(WORDS)];g.guesses=[[],[]]}
@@ -180,4 +191,8 @@ const server=http.createServer((req,res)=>{const u=new URL(req.url,'http://x');
  const r=await pool.query('SELECT data FROM pw_state WHERE id=1');if(r.rows[0])db=r.rows[0].data;console.log('Using Postgres storage')}
  // old prototype data used a different format; start fresh if seen
  if(Object.values(db.games||{}).some(g=>g.type==='ttt'&&g.board.some(x=>typeof x==='string')))db={users:{},circles:{},games:{}};
+ // Flush Frenzy (tap race) was removed: drop its games and stats, recompute 'all'
+ for(const[k,g]of Object.entries(db.games||{}))if(g.type==='flush')delete db.games[k];
+ const fix=o=>{if(!o||!o.flush)return;delete o.flush;const a={w:0,l:0,d:0};for(const t of TYPES)if(o[t])for(const x in a)a[x]+=o[t][x];o.all=a};
+ for(const u of Object.values(db.users||{})){fix(u.stats);fix(u.botStats);for(const c of Object.values(u.circleStats||{}))fix(c)}
  ensureBot();server.listen(PORT,()=>console.log('🚽 Poop Wars on http://localhost:'+PORT))})().catch(e=>{console.error(e);process.exit(1)});

@@ -18,7 +18,7 @@ button.sm{padding:7px 9px;font-size:15px}input{font-size:16px;padding:11px;borde
 .sea.small div{font-size:13px}.sea .ship{background:#d9c2a3}.sea .tap{cursor:pointer}
 .kb{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.kb button{margin:0;padding:10px 0}
 .word{font-size:30px;letter-spacing:6px;text-align:center;font-weight:bold;font-family:monospace;word-break:break-all}
-.big{font-size:18px;text-align:center}.tapper{font-size:120px;user-select:none;text-align:center;touch-action:manipulation}
+.big{font-size:18px;text-align:center}.pads{display:grid;grid-template-columns:1fr 1fr;gap:12px}.pads div{aspect-ratio:1;border-radius:20px;font-size:56px;display:flex;align-items:center;justify-content:center;opacity:.45;user-select:none;touch-action:manipulation;transition:opacity .08s,transform .08s}.pads div.lit{opacity:1;transform:scale(1.05);box-shadow:0 0 24px #fff8}.tapper{font-size:120px;user-select:none;text-align:center;touch-action:manipulation}
 nav{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;justify-content:space-around;padding:6px;box-shadow:0 -2px 6px #0002}nav button{flex:1}
 </style></head><body><h1>💩 Poop Wars 🚽</h1><div id="app"></div>
 <nav id="nav" style="display:none"><button onclick="go('home')">🕹️ Arcade</button><button onclick="go('games')">🎮 Games</button><button onclick="go('lb')">🏆 Ranks</button></nav>
@@ -26,10 +26,10 @@ nav{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;justify-
 let T=localStorage.pwToken,me=null,poll=null,place={};const $=document.getElementById('app');
 const api=async(p,b)=>{const r=await fetch('/api/'+p,{method:b?'POST':'GET',headers:{'Content-Type':'application/json','x-token':T||''},body:b&&JSON.stringify(b)});const j=await r.json();if(!r.ok)throw Error(j.error);return j};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');const err=e=>alert('🚫 '+e.message);
-const G={ttt:{n:'Tic-Tac-Toilet',e:'#️⃣',c:'#8e5b34',d:'3 in a row'},c4:{n:'Connect Four-Flush',e:'🔴',c:'#4f7ea6',d:'Drop 4 in a row'},flush:{n:'Flush Frenzy',e:'🚽',c:'#3a9b8f',d:'Tap race'},
+const G={ttt:{n:'Tic-Tac-Toilet',e:'#️⃣',c:'#8e5b34',d:'3 in a row'},c4:{n:'Connect Four-Flush',e:'🔴',c:'#4f7ea6',d:'Drop 4 in a row'},follow:{n:'Follow the Flush',e:'🚽',c:'#3a9b8f',d:'Memory pattern race'},
  dots:{n:'Stall Wars',e:'🚪',c:'#b0643a',d:'Claim the most stalls'},sink:{n:'Sink the Stink',e:'🦆',c:'#3f6fb5',d:'Find their hidden clogs'},hang:{n:'Hang-Ten TP',e:'🧻',c:'#a04f8f',d:'Guess the word'}};
 const SHIPS=[{n:'Mega Clog',e:'💩',s:4},{n:'Rubber Duck',e:'🦆',s:3},{n:'Plunger',e:'🪠',s:3},{n:'TP Roll',e:'🧻',s:2}];
-const MK=['🧻','💩'];const rec=s=>s?`${s.w}W ${s.l}L ${s.d}D`:'0W 0L 0D';
+const MK=['🧻','💩'];const fb=b=>`${b.len} long · ${(b.ms/1000).toFixed(1)}s`;const rec=s=>(s?`${s.w}W ${s.l}L ${s.d}D`:'0W 0L 0D')+(s&&s.best?` <small>· best ${fb(s.best)}</small>`:'');
 async function go(v,a,b){clearInterval(poll);scrollTo(0,0);try{
  if(!T)return signup();me=await api('me');document.getElementById('nav').style.display='flex';
  if(v==='circle')return circle(a,b);if(v==='game')return game(a);if(v==='lb')return lb(a);if(v==='pick')return pick(a);if(v==='games')return games();home()}catch(e){if(/Sign up/.test(e.message)){T=null;localStorage.removeItem('pwToken');signup()}else err(e)}}
@@ -49,7 +49,7 @@ function pick(t){const x=G[t];
  <h2>🪠 Solo vs Plunger Bot</h2><div class=card><button onclick="ch(null,'bot','${t}','easy')">😌 Easy</button><button onclick="ch(null,'bot','${t}','hard')">😈 Hard</button><br><small>Bot games go on your separate "vs Bot" record, not the rankings.</small></div>
  <h2>⚔️ Challenge someone</h2>${t==='hang'?`<div class=card><input id=sw maxlength=12 placeholder="Optional: secret word for them (3–12 letters)"><small>Leave blank and we'll pick a random one.</small></div>`:''}
  ${me.circleList.map(c=>`<div class=card><b>${esc(c.name)}</b>${c.members.map(m=>`<div class=row><span>${esc(m.name)}</span><button class=sm onclick="ch('${c.id}','${m.id}','${t}')">Challenge</button></div>`).join('')||'<br><small>Nobody else here yet. Share code <b>'+c.code+'</b></small>'}</div>`).join('')||'<div class=card>Join or create a circle on the Arcade screen to challenge friends.</div>'}`}
-const HELP={ttt:'Get 3 in a row. 🧻 goes first.',c4:'Drop pieces into columns. First to 4 in a row wins.',flush:'Tap the toilet 30 times as fast as you can. Fastest time wins.',
+const HELP={ttt:'Get 3 in a row. 🧻 goes first.',c4:'Drop pieces into columns. First to 4 in a row wins.',follow:'Watch the pads light up, then repeat the pattern. It grows by one each round until you slip. Longest pattern wins; tie goes to the faster fingers. You both get the same pattern.',
  dots:'Take turns drawing walls. Close the 4th wall of a stall to claim it and go again. Most stalls wins.',sink:'Hide your 4 items, then take turns firing at their 8×8 pipes. Sink everything first to win.',
  hang:'Guess your word one letter at a time. Each miss unrolls a sheet of TP (7 sheets). Fewest misses wins.'};
 async function mk(){try{const c=await api('circles',{name:cn.value||'My Circle'});go('circle',c.id)}catch(e){err(e)}}
@@ -76,9 +76,11 @@ async function game(id){const g=await api('game?id='+id),opp=esc(g.names[1-g.me]
 const R={
  ttt:(g,s)=>`<div class="card big">${s}</div><div class="card ttt">${g.board.map((v,i)=>`<div onclick="mv('${g.id}',{pos:${i}})">${v==null?'':MK[v]}</div>`).join('')}</div>`,
  c4:(g,s)=>`<div class="card big">${s}</div><div class="card c4">${g.board.map((v,i)=>`<div onclick="mv('${g.id}',{pos:${i%7}})">${v==null?'':MK[v]}</div>`).join('')}</div><small>Tap any spot in a column to drop your piece.</small>`,
- flush:(g,s,opp)=>{const mine=g.scores[me.id];if(g.status==='done')return`<div class="card big">${s}<br>You: ${(mine/1000).toFixed(2)}s<br>${opp}: ${(g.scores[g.players[1-g.me]]/1000).toFixed(2)}s</div>`;
-  if(mine!=null)return`<div class="card big">Your time: ${(mine/1000).toFixed(2)}s 🔒<br>Waiting for ${opp} to play…</div>`;
-  return`<div class="card big">Tap the toilet <b>30 times</b> as fast as you can!<br><button onclick="flush('${g.id}')">Start! 🚽</button></div>`},
+ follow:(g,s,opp)=>{const mine=g.res[me.id];
+  if(g.status==='done'){const th=g.res[g.players[1-g.me]];return`<div class="card big">${s}<br>You: ${fb(mine)}<br>${esc(opp)}: ${fb(th)}</div>`}
+  if(mine)return`<div class="card big">Your run: ${fb(mine)} 🔒<br>Waiting for ${esc(opp)} to play…</div>`;
+  if(g.started)return`<div class="card big">You left in the middle of your run, so it ends here.<br><button onclick="follow('${g.id}',1)">Submit my run</button></div>`;
+  return`<div class="card big">Watch the pads, then repeat the pattern. It grows each round.<br><b>One try only</b> — don't leave mid-run!<br><button onclick="follow('${g.id}')">Start! 🚽</button></div>`},
  dots:(g,s)=>{const sc=[0,1].map(p=>g.boxes.filter(b=>b===p).length);let cells='';
   for(let r=0;r<9;r++)for(let c=0;c<9;c++){if(r%2==0&&c%2==0)cells+='<div class=d></div>';
    else if(r%2==0){const i=(r/2)*4+(c-1)/2;cells+=`<div class="h ${g.lines[i]!=null?'p'+g.lines[i]:''}" onclick="mv('${g.id}',{pos:${i}})"></div>`}
@@ -108,10 +110,21 @@ function placeUI(g){const p=place[g.id]=place[g.id]||{ships:[],h:true},next=SHIP
  ${p.ships.length===4?`<button onclick="mv('${g.id}',{ships:place['${g.id}'].ships})">✅ Lock it in</button>`:''}`}
 function putShip(id,i){const p=place[id],n=SHIPS[p.ships.length];if(!n)return;const r=i>>3,c=i&7;if(p.h?c+n.s>8:r+n.s>8)return alert('Doesn’t fit there');
  const cells=Array.from({length:n.s},(_,k)=>p.h?i+k:i+8*k);if(cells.some(x=>p.ships.flat().includes(x)))return alert('Overlaps something');p.ships.push(cells);game(id)}
-function flush(id){clearInterval(poll);let n=0,t0=0;const N=30;$.innerHTML=`<div class="card big" id=ct>Get ready…</div><div class="tapper" id=tp>🚽</div>`;
- let c=3;const iv=setInterval(()=>{ct.textContent=c?c+'…':'GO! TAP!';if(!c--){clearInterval(iv);t0=performance.now();
-  tp.onpointerdown=async e=>{e.preventDefault();n++;tp.textContent=n%2?'💩':'🚽';ct.textContent=`${N-n} to go! ${((performance.now()-t0)/1000).toFixed(2)}s`;
-   if(n>=N){tp.onpointerdown=null;const ms=Math.round(performance.now()-t0);tp.textContent='🌊';ct.textContent=`FLUSHED in ${(ms/1000).toFixed(2)}s!`;
-    try{await api('move',{gameId:id,ms})}catch(e){err(e)}setTimeout(()=>game(id),1500)}}}},700)}
+const PADS=[['🧻','#e8c547'],['💩','#8e5b34'],['🚽','#4f9bd1'],['🪠','#d0493d']];
+async function follow(id,quit){clearInterval(poll);if(quit){try{await api('move',{gameId:id,len:0,ms:0})}catch(e){err(e)}return game(id)}
+ let g;try{await api('move',{gameId:id,start:true});g=await api('game?id='+id)}catch(e){return err(e)}
+ const seq=g.seq,sl=ms=>new Promise(r=>setTimeout(r,ms));let total=0,len=0;
+ $.innerHTML=`<div class="card big" id=ct>Get ready…</div><div class="card pads">${PADS.map((p,i)=>`<div id=pd${i} style="background:${p[1]}">${p[0]}</div>`).join('')}</div>`;
+ const pads=PADS.map((_,i)=>document.getElementById('pd'+i)),lit=async(i,ms)=>{pads[i].classList.add('lit');await sl(ms);pads[i].classList.remove('lit')};
+ const done=async msg=>{pads.forEach(p=>p.onpointerdown=null);ct.innerHTML=msg+`<br>Pattern: <b>${len}</b> long · ${(total/1000).toFixed(1)}s`;
+  try{await api('move',{gameId:id,len,ms:Math.round(total)})}catch(e){err(e)}setTimeout(()=>game(id),2000)};
+ await sl(800);
+ for(let r=1;r<=seq.length;r++){ct.textContent=`Round ${r} · watch…`;pads.forEach(p=>p.onpointerdown=null);await sl(500);
+  const on=Math.max(220,550-r*20);for(let k=0;k<r;k++){await lit(seq[k],on);await sl(140)}
+  ct.textContent=`Round ${r} · your turn!`;const t0=performance.now();
+  const ok=await new Promise(res=>{let k=0;pads.forEach((p,i)=>p.onpointerdown=e=>{e.preventDefault();lit(i,150);
+   if(i!==seq[k]){total+=performance.now()-t0;return res(false)}if(++k===r){total+=performance.now()-t0;res(true)}})});
+  if(!ok)return done('💥 Clogged!');len=r}
+ done('🏆 You flushed the whole pattern!')}
 go('home');
 </script></body></html>

@@ -9,7 +9,7 @@ function legal(g){switch(g.type){
  case'dots':return{pos:rnd([...g.lines.keys()].filter(i=>g.lines[i]==null))};
  case'sink':return g.phase==='setup'?{ships:'random'}:{pos:rnd([...Array(64).keys()].filter(x=>!g.myShots[x]))};
  case'hang':return{letter:rnd('ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').filter(l=>!g.myGuesses.includes(l)))};
- case'flush':return{ms:5000}}}
+ case'follow':return g.started?{len:0,ms:0}:{start:true}}}
 async function playOut(tok,g){for(let n=0;n<200&&g.status==='active';n++){if(!g.myTurn){g=await api('game?id='+g.id,tok);continue}const r=await api('move',tok,{gameId:g.id,...legal(g)});if(r.error)throw Error(r.error);g=r}return g}
 (async()=>{
  const A=await api('signup',null,{name:'Alice'}),Bo=await api('signup',null,{name:'Bob'});
@@ -20,9 +20,17 @@ async function playOut(tok,g){for(let n=0;n<200&&g.status==='active';n++){if(!g.
  let g=await ch('ttt');for(const[t,p]of[[A,0],[Bo,3],[A,1],[Bo,4],[A,2]])g=await mv(t.token,g,{pos:p});ok(g.winner===A.id,'TTT: Alice wins top row');
  g=await ch('c4');ok((await mv(Bo.token,g,{pos:0})).error==='Not your turn','C4: out-of-turn move rejected');
  for(const[t,p]of[[A,0],[Bo,1],[A,0],[Bo,1],[A,0],[Bo,1],[A,0]])g=await mv(t.token,g,{pos:p});ok(g.winner===A.id,'C4: Alice wins vertical');
- g=await ch('flush');await mv(Bo.token,g,{ms:6000});g=await api('game?id='+g.id,A.token);ok(g.scores[Bo.id]===undefined,'Flush: opponent time hidden until both play');
- g=await mv(A.token,g,{ms:5000});ok(g.winner===A.id,'Flush: faster wins');
- ok((await mv(A.token,await ch('flush'),{ms:200})).error,'Flush: impossible time rejected');
+ g=await ch('follow');ok(g.seq===undefined,'Follow: pattern hidden before you start');
+ ok((await mv(Bo.token,g,{len:3,ms:1500})).error,'Follow: must start before submitting');
+ const fb0=await mv(Bo.token,g,{start:true});await mv(Bo.token,g,{len:3,ms:1500});
+ g=await api('game?id='+g.id,A.token);ok(g.res[Bo.id]===undefined,'Follow: opponent result hidden until both play');
+ g=await mv(A.token,g,{start:true});g=await api('game?id='+g.id,A.token);ok(JSON.stringify(g.seq)===JSON.stringify(fb0.seq)&&g.seq.length===40&&g.seq.every(x=>x>=0&&x<4),'Follow: both players get the same 4-pad pattern');
+ ok((await mv(A.token,g,{len:10,ms:500})).error,'Follow: impossibly fast time rejected');
+ g=await mv(A.token,g,{len:3,ms:1000});ok(g.winner===A.id,'Follow: same length, faster time wins');
+ const g2=await ch('follow'); const fl=await api('leaderboard?type=follow');const al=fl.find(x=>x.id===A.id);ok(al&&al.best&&al.best.len===3&&al.best.ms===1000,'Follow: leaderboard tracks best length + time');
+ for(const[d,lo,hi]of[['easy',4,6],['hard',11,14]]){let x=await api('challenge',A.token,{opponentId:'bot',type:'follow',difficulty:d});x=await mv(A.token,x,{start:true});x=await mv(A.token,x,{len:0,ms:0});
+  const r=x.res.bot;ok(r&&r.len>=lo&&r.len<=hi&&r.ms>r.len*(r.len+1)/2*250,`Follow: ${d} bot reaches ${r&&r.len} (expected ${lo}-${hi}) with realistic time`)}
+ ok((await ch('flush')).error,'Flush Frenzy removed (old type rejected)');
  // Stall Wars: Bob completes box 0 and keeps his turn
  g=await ch('dots');for(const[t,p]of[[A,0],[Bo,20],[A,21]])g=await mv(t.token,g,{pos:p});g=await mv(Bo.token,g,{pos:4});
  ok(g.boxes[0]===1&&g.turn===1,'Stall Wars: completing a stall gives an extra turn');
@@ -48,7 +56,7 @@ async function playOut(tok,g){for(let n=0;n<200&&g.status==='active';n++){if(!g.
  const circ=await api('circle?id='+C.id,A.token);ok(circ.boards.all.length===2&&circ.boards.hang.find(m=>m.name==='Bob').w===1,'Circle per-game + overall boards');
  // Bots
  const before=JSON.stringify((await api('me',A.token)).stats);
- for(const t of['ttt','c4','flush','dots','sink','hang'])for(const d of['easy','hard']){const t0=Date.now();
+ for(const t of['ttt','c4','follow','dots','sink','hang'])for(const d of['easy','hard']){const t0=Date.now();
   let bg=await api('challenge',A.token,{opponentId:'bot',type:t,difficulty:d});bg=await playOut(A.token,bg);
   ok(bg.status==='done',`Bot ${t} ${d}: finished solo (${Date.now()-t0}ms) winner=${bg.winner==='bot'?'bot':bg.winner==='draw'?'draw':'human'}`)}
  let tttLoss=0;for(let i=0;i<6;i++){const bg=await playOut(A.token,await api('challenge',A.token,{opponentId:'bot',type:'ttt',difficulty:'hard'}));if(bg.winner===A.id)tttLoss++}
