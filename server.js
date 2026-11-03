@@ -2,8 +2,13 @@
 const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto');
 const PORT=process.env.PORT||3737, DB=path.join(__dirname,'data.json');
 let db={users:{},circles:{},games:{}};
-try{db=JSON.parse(fs.readFileSync(DB))}catch(e){}
-const save=()=>fs.writeFileSync(DB,JSON.stringify(db,null,1));
+// Storage: Postgres if DATABASE_URL is set (Render), else local data.json file.
+let pool=null,saving=Promise.resolve();
+if(process.env.DATABASE_URL){const{Pool}=require('pg');
+ pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:/localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL)?false:{rejectUnauthorized:false}})}
+else{try{db=JSON.parse(fs.readFileSync(DB))}catch(e){}}
+const save=()=>{if(!pool)return fs.writeFileSync(DB,JSON.stringify(db,null,1));
+ const snap=JSON.stringify(db);saving=saving.then(()=>pool.query('INSERT INTO pw_state(id,data) VALUES(1,$1) ON CONFLICT(id) DO UPDATE SET data=$1',[snap])).catch(e=>console.error('save failed',e))};
 const id=(n=8)=>crypto.randomBytes(n).toString('hex');
 const code=()=>Array.from({length:6},()=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.random()*32|0]).join('');
 const send=(res,s,o)=>{res.writeHead(s,{'Content-Type':'application/json'});res.end(JSON.stringify(o))};
@@ -51,7 +56,7 @@ const routes={
    if(w)finish(g,w==='draw'?'draw':u.id);else g.turn=1-me}
   g.updated=Date.now();return[200,view(g)]},
 };
-http.createServer((req,res)=>{const u=new URL(req.url,'http://x');
+const server=http.createServer((req,res)=>{const u=new URL(req.url,'http://x');
  if(!u.pathname.startsWith('/api/')){let f=path.join(__dirname,'public',u.pathname==='/'?'index.html':path.normalize(u.pathname));
   if(!f.startsWith(path.join(__dirname,'public')))return send(res,403,{});
   fs.readFile(f,(e,d)=>{if(e){res.writeHead(404);return res.end('nope')}res.writeHead(200,{'Content-Type':f.endsWith('.html')?'text/html; charset=utf-8':'text/plain'});res.end(d)});return}
@@ -61,4 +66,7 @@ http.createServer((req,res)=>{const u=new URL(req.url,'http://x');
   const tok=req.headers['x-token'];const user=Object.values(db.users).find(x=>x.token===tok);
   if(u.pathname!=='/api/signup'&&u.pathname!=='/api/leaderboard'&&!user)return send(res,401,{error:'Sign up first'});
   try{const[s,o]=r(b,user,Object.fromEntries(u.searchParams));if(s===200)save();send(res,s,o)}catch(e){console.error(e);send(res,500,{error:'Server clogged'})}})
-}).listen(PORT,()=>console.log('🚽 Poop Wars on http://localhost:'+PORT));
+});
+(async()=>{if(pool){await pool.query('CREATE TABLE IF NOT EXISTS pw_state(id int PRIMARY KEY, data jsonb NOT NULL)');
+ const r=await pool.query('SELECT data FROM pw_state WHERE id=1');if(r.rows[0])db=r.rows[0].data;console.log('Using Postgres storage')}
+ server.listen(PORT,()=>console.log('🚽 Poop Wars on http://localhost:'+PORT))})().catch(e=>{console.error(e);process.exit(1)});

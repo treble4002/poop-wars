@@ -1,12 +1,14 @@
 # Poop Wars 💩🚽 (test prototype)
 ## Run it
-Needs Node.js 18 or newer. No installs, no accounts.
+Needs Node.js 18 or newer. Run `npm install` once first. That installs the Postgres driver.
 ```
 node server.js          # opens on http://localhost:3737  (PORT=xxxx to change)
 ./test.sh               # automatic two-player test (server must be running)
 ```
 To try two players on one computer, open one normal browser window and one private/incognito window. Each window counts as a different person.
 To reset all data, stop the server and delete `data.json`.
+
+On Render, set `DATABASE_URL` to a Postgres connection string. The app then stores everything in Postgres (one table, `pw_state`) instead of `data.json`.
 ## Files
 - `server.js`: the whole backend (accounts, circles, games, leaderboards). It saves everything to `data.json`.
 - `public/index.html`: the whole phone app (screens, games, emoji styling).
