@@ -10,7 +10,7 @@ function legal(g){switch(g.type){
  case'sink':return g.phase==='setup'?{ships:'random'}:{pos:rnd([...Array(64).keys()].filter(x=>!g.myShots[x]))};
  case'hang':return{letter:rnd('ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').filter(l=>!g.myGuesses.includes(l)))};
  case'follow':return g.started?{len:0,ms:0}:{start:true}}}
-async function playOut(tok,g){for(let n=0;n<200&&g.status==='active';n++){if(!g.myTurn){g=await api('game?id='+g.id,tok);continue}const r=await api('move',tok,{gameId:g.id,...legal(g)});if(r.error)throw Error(r.error);g=r}return g}
+async function playOut(tok,g){for(let n=0;n<200&&g.status==='active';n++){if(!g.myTurn)return g;const r=await api('move',tok,{gameId:g.id,...legal(g)});if(r.error)throw Error(r.error);g=r}return g}
 (async()=>{
  const A=await api('signup',null,{name:'Alice'}),Bo=await api('signup',null,{name:'Bob'});
  const C=await api('circles',A.token,{name:'Fam'});await api('circles/join',Bo.token,{code:C.code});
