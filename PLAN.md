@@ -1,7 +1,7 @@
 # Poop Wars: Plan (plain English)
 
 ## The one-sentence idea
-Quick, silly head-to-head games you play against friends and family on your phone. The joke is that they're made for bathroom breaks: each one takes 1–3 minutes, with no download.
+Quick, silly roll-to-roll games you play against friends and family on your phone. The joke is that they're made for bathroom breaks: each one takes 1–3 minutes, with no download.
 
 ## Who it's for
 - **First:** your friends and family, about 10–30 people in 2–4 group chats. They already know each other, so trash talk comes naturally.
@@ -47,7 +47,7 @@ Welcome (type a name) → Home (your games + your circles + create/join) → Cir
 - Money ideas: the no-ads upgrade at $2.99 one time, cosmetics at $0.99–$2.99. Honest note: small casual games usually earn pennies per user, so you need tens of thousands of active players before this becomes real income.
 
 ## Ready-to-paste prompt for Lovable (or a similar AI builder)
-> Build a mobile-first web app called "Poop Wars": funny head-to-head mini games for friends and family, themed around playing on the toilet. Use a warm brown/cream bathroom theme with lots of emoji (💩🚽🧻🌊👑). Use Supabase for the database and for auth with email magic links. Features:
+> Build a mobile-first web app called "Poop Wars": funny roll-to-roll mini games for friends and family, themed around playing on the toilet. Use a warm brown/cream bathroom theme with lots of emoji (💩🚽🧻🌊👑). Use Supabase for the database and for auth with email magic links. Features:
 > 1. Sign in with email magic link. Then choose a display name.
 > 2. "Circles": private groups. Creating one gives a random 6-character invite code and a "copy invite" button. Others join by entering the code.
 > 3. On the circle page, show the members ranked by wins (W/L/D in this circle). Next to each member, show buttons to challenge them to one of three games.

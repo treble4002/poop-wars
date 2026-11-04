@@ -31,9 +31,9 @@ function prefill(){if(INVITE){if(window.rc&&!rc.value)rc.value=INVITE}if(JOIN&&w
 new MutationObserver(prefill).observe(document.getElementById('app'),{childList:true});
 async function signup(){CFG=CFG||await api('config');
  const guest=`<div class=card><b>Just want to play?</b><br><small>Play Plunger Pete right now, no account needed. Scores are not saved.</small><br><button class=alt onclick="doGuest()">🪠 Play as guest</button></div>`;
- if(CFG.auth==='email-otp'&&!TICKET){$.innerHTML=`<div class="card big">Head-to-head mini games for your bathroom break.</div><div class=card><label>Your email</label><input id=em type=email autocomplete=email><button onclick="sendCode()">Email me a code</button>
+ if(CFG.auth==='email-otp'&&!TICKET){$.innerHTML=`<div class="card big">Roll-to-roll mini games for your bathroom break.</div><div class=card><label>Your email</label><input id=em type=email autocomplete=email><button onclick="sendCode()">Email me a code</button>
   ${INVITE?`<small>🎟️ Invite code <b>${INVITE}</b> will be applied after you confirm your email.</small>`:''}<div id=codebox style="display:none"><label>Code from your email (6–8 digits)</label><input id=oc inputmode=numeric autocomplete=one-time-code maxlength=8 pattern="[0-9]{6,8}" oninput="codeInput(this)"><button onclick="checkCode()">Sign in</button></div></div>${guest}`;return}
- $.innerHTML=`<div class="card big">Head-to-head mini games for your bathroom break.</div><div class=card>
+ $.innerHTML=`<div class="card big">Roll-to-roll mini games for your bathroom break.</div><div class=card>
  <label>Silly name</label><input id=n placeholder="e.g. Sir Plops" maxlength=20>
 
  <label style="display:flex;gap:10px;align-items:flex-start;font-weight:600"><input id=ar type=checkbox style="width:24px;height:24px;flex:none;margin-top:2px"><span>I certify I am 13 or older and agree to the <a href="/rules" target="_blank">Poop Wars rules</a>.</span></label>

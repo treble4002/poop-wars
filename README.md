@@ -1,5 +1,5 @@
 # Poop Wars 💩🚽 (pilot rebuild)
-Head-to-head toilet-themed mini games for phone browsers. Node server + plain HTML/JS/CSS (no build step).
+Roll-to-roll toilet-themed mini games for phone browsers. Node server + plain HTML/JS/CSS (no build step).
 
 ## Run it
 Needs Node.js 18+. `npm install` once.
