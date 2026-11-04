@@ -1,13 +1,27 @@
 // Core app: API client, router, screens. Game renderers live in js/games/*.js and register on R.
 const R={};
 let T=localStorage.pwToken,me=null,poll=null,place={};const $=document.getElementById('app');
-const api=async(p,b)=>{const r=await fetch('/api/'+p,{method:b?'POST':'GET',headers:{'Content-Type':'application/json','x-token':T||''},body:b&&JSON.stringify(b)});const j=await r.json();if(!r.ok)throw Error(j.error);return j};
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');const err=e=>alert('🚫 '+e.message);
+// Network resilience: network failures and 502/503/504 (deploy restarts, proxy hiccups) are retried with backoff
+// while a small "Reconnecting…" toast shows. Moves are versioned on the server, so a retried move can't apply twice:
+// if a retried POST comes back 4xx, the first attempt already landed, so we just re-sync instead of showing an error.
+let CUR=null,netDown=0;const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function toast(msg,ms){let t=document.getElementById('toast');if(!t){t=document.createElement('div');t.id='toast';t.setAttribute('role','status');
+ t.style.cssText='position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#3b2616;color:#fff;padding:10px 16px;border-radius:14px;font-weight:700;box-shadow:0 4px 14px #0004;z-index:99;max-width:90vw;text-align:center;transition:opacity .2s';document.body.appendChild(t)}
+ t.textContent=msg;t.style.opacity='1';t.hidden=false;clearTimeout(t._h);if(ms)t._h=setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.hidden=true,250)},ms)}
+const resync=()=>{if(CUR)game(CUR)};
+async function api(p,b,{retries=(b&&p!=='move')?0:8}={}){let tried=0;  // only GETs and versioned moves are retried
+ for(;;){let r;try{r=await fetch('/api/'+p,{method:b?'POST':'GET',headers:{'Content-Type':'application/json','x-token':T||''},body:b&&JSON.stringify(b),cache:'no-store'})}catch(e){r=null}
+  if(r&&![502,503,504].includes(r.status)){const j=await r.json().catch(()=>({error:'Server hiccup'}));
+   if(netDown){netDown=0;toast('Back online ✅',1500);if(p!=='game?id='+CUR)setTimeout(resync,0)}
+   if(!r.ok){if(tried&&b&&p==='move'){resync();return{resynced:true}}const e=Error(j.error||'Something went wrong');e.status=r.status;throw e}return j}
+  if(tried>=retries){netDown=0;toast(retries?'Still offline. Check your connection and try again.':'Network problem. Please try again.',4000);const e=Error('offline');e.net=true;throw e}
+  netDown=1;toast('Reconnecting…');await sleep(Math.min(8000,500*2**tried)+Math.random()*250);tried++}}
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');const err=e=>{if(e&&e.net)return;toast('🚫 '+(e&&e.message||'Something went wrong'),3500)};
 const G={ttt:{n:'Tic-Tac-Toilet',e:'#️⃣',c:'#8e5b34',d:'3 in a row'},c4:{n:'Connect Four-Flush',e:'🔴',c:'#4f7ea6',d:'Drop 4 in a row'},follow:{n:'Follow the Flush',e:'🚽',c:'#3a9b8f',d:'Memory pattern race'},
  dots:{n:'Stall Wars',e:'🚪',c:'#b0643a',d:'Claim the most stalls'},sink:{n:'Sink the Stink',e:'🦆',c:'#3f6fb5',d:'Find their hidden clogs'},hang:{n:'Hang-Ten TP',e:'🧻',c:'#a04f8f',d:'Guess the word'}};
 const SHIPS=[{n:'Mega Clog',e:'💩',s:4},{n:'Rubber Duck',e:'🦆',s:3},{n:'Plunger',e:'🪠',s:3},{n:'TP Roll',e:'🧻',s:2}];
 const MK=['🧻','💩'];const fb=b=>`${b.len} long · ${(b.ms/1000).toFixed(1)}s`;const rec=s=>(s?`${s.w}W ${s.l}L ${s.d}D`:'0W 0L 0D')+(s&&s.best?` <small>· best ${fb(s.best)}</small>`:'');
-async function go(v,a,b){clearInterval(poll);scrollTo(0,0);try{
+async function go(v,a,b){clearInterval(poll);if(v!=='game')CUR=null;scrollTo(0,0);try{
  if(!T)return signup();CFG=CFG||await api('config');me=await api('me');document.getElementById('nav').style.display='flex';
  if(v==='circle')return circle(a,b);if(v==='game')return game(a);if(v==='lb')return lb(a);if(v==='pick')return pick(a);if(v==='games')return games();home()}catch(e){if(/Sign up/.test(e.message)){T=null;localStorage.removeItem('pwToken');signup()}else err(e)}}
 let CFG=null,TICKET=null;
@@ -40,10 +54,10 @@ async function home(){const gs=await api('games'),turns=gs.filter(g=>g.myTurn).l
  ${!me.premium?`<h2>👑 Premium</h2><div class=card>Circles with friends, saved scores, trophies and the trash talk arena are premium.${me.kind==='guest'?`<br><button onclick="logout()">Make an account</button>`:`<input id=rc placeholder="Have an invite code?" maxlength=8 style="text-transform:uppercase"><button onclick="redeem()">Redeem</button>`}</div>`:`
  <h2>👨‍👩‍👧 Your circles</h2>${me.circleList.map(c=>`<div class="card row" onclick="go('circle','${c.id}')"><b>${esc(c.name)}</b><span>Code: ${c.code} ›</span></div>`).join('')||'<div class=card>Make a circle and share the code in your family group chat.</div>'}
  <div class=card><input id=cn placeholder="New circle name (e.g. The Throne Room)"><button onclick="mk()">Create circle</button><hr><input id=cc placeholder="Invite code" maxlength=6 style="text-transform:uppercase"><button class=alt onclick="jn()">Join circle</button></div>`}${me.pilot?'<small class=muted>🧪 Pilot tester: lifetime premium</small>':''}`;
- poll=setInterval(async()=>{const g2=await api('games');if(g2.filter(g=>g.myTurn).length!==turns)home()},6000)}
+ poll=setInterval(async()=>{const g2=await api('games',null,{retries:2}).catch(()=>null);if(g2&&g2.filter(g=>g.myTurn).length!==turns)home()},6000)}
 async function games(){const gs=await api('games');
  $.innerHTML=`<h2>🎮 Your games</h2>${gs.map(g=>`<div class="card row" onclick="go('game','${g.id}')"><span>${G[g.type].e} ${G[g.type].n}<br><small>vs ${esc(g.names[1-g.me])}${g.vsBot?' ('+g.diff+')':''}</small></span><b>${g.status==='done'?(g.winner===me.id?'🏆 Won':g.winner==='draw'?'🤝 Draw':'💀 Lost'):g.myTurn?'👉 Your turn':'⏳ Waiting'}</b></div>`).join('')||'<div class=card>No games yet. Pick one in the Arcade!</div>'}`;
- poll=setInterval(async()=>{const g2=await api('games');if(JSON.stringify(g2.map(g=>g.updated))!==JSON.stringify(gs.map(g=>g.updated)))games()},5000)}
+ poll=setInterval(async()=>{const g2=await api('games',null,{retries:2}).catch(()=>null);if(g2&&JSON.stringify(g2.map(g=>g.updated))!==JSON.stringify(gs.map(g=>g.updated)))games()},5000)}
 function pick(t){const x=G[t];
  $.innerHTML=`<div class="card big" style="background:${x.c};color:#fff"><span style="font-size:50px">${x.e}</span><br><b>${x.n}</b><br><small>${HELP[t]}</small></div>
  <h2>🪠 Solo vs Plunger Pete</h2><div class=card><button onclick="ch(null,'bot','${t}','easy')">😌 Easy</button><button onclick="ch(null,'bot','${t}','hard')">😈 Hard</button><br><small>Games vs Plunger Pete go on your separate "vs Bot" record, not the rankings.</small></div>
@@ -66,14 +80,14 @@ async function lb(tab='all'){const l=await api('leaderboard?type='+tab);
  <div class=card><b>Your vs 🪠 Plunger Pete record</b>${Object.keys(G).map(t=>`<div class=row><span>${G[t].e} ${G[t].n}</span><span>${rec(me.botStats[t])}</span></div>`).join('')}</div>`}
 async function ch(c,o,t,d){try{const w=window.sw&&sw.value.trim();const g=await api('challenge',{circleId:c,opponentId:o,type:t,difficulty:d,word:t==='hang'&&o!=='bot'?w:undefined});go('game',g.id)}catch(e){err(e)}}
 async function mv(id,b){try{await api('move',{gameId:id,...b});game(id)}catch(e){err(e)}}
-async function game(id){const g=await api('game?id='+id),opp=esc(g.names[1-g.me]),x=G[g.type];
+async function game(id){CUR=id;const g=await api('game?id='+id),opp=esc(g.names[1-g.me]),x=G[g.type];
  let res=g.status!=='done'?'':g.winner===me.id?'🏆 You won! Flush with pride.':g.winner==='draw'?'🤝 Draw. Nobody flushed.':'💀 You lost. Wipe away the tears.';
  let h=`<div class="card big" style="background:${x.c};color:#fff"><b>${x.e} ${x.n}</b><br>You ${MK[g.me]} vs ${opp} ${MK[1-g.me]}${g.vsBot?' · '+g.diff:''}</div>`;
  const status=res||(g.myTurn?'👉 Your turn!':'⏳ Waiting for '+opp+'… (auto-refreshing)');
  h+=(R[g.type]||(()=>''))(g,status,opp);
  if(!g.vsBot&&me.premium)h+=arena(g);
  if(g.status==='done')h+=`<button onclick="ch(${g.circleId?`'${g.circleId}'`:null},'${g.players[1-g.me]}','${g.type}','${g.diff||''}')">🔁 Rematch</button> <button class=alt onclick="go('home')">🕹️ Arcade</button>`;
- $.innerHTML=h;if(g.status==='active')poll=setInterval(async()=>{const g2=await api('game?id='+id);if(g2.updated!==g.updated)game(id)},3000)}
+ $.innerHTML=h;if(g.status==='active')poll=setInterval(async()=>{const g2=await api('game?id='+id,null,{retries:2}).catch(()=>null);if(g2&&g2.updated!==g.updated)game(id)},3000)}
 
 // Trash talk arena: preset taunts + short free text (60 chars, filtered on the server), with report + block. Wiped when the game ends.
 function arena(g){const opp=g.players[1-g.me],T2=CFG&&CFG.taunts||{};

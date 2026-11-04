@@ -3,7 +3,7 @@ const fs=require('fs'),path=require('path');
 let pool=null,mode='';
 async function init(){
   if(process.env.DATABASE_URL){const{Pool}=require('pg');const u=process.env.DATABASE_URL;
-    pool=new Pool({connectionString:u,max:Number(process.env.PG_POOL_MAX)||5,connectionTimeoutMillis:15000,ssl:/localhost|127\.0\.0\.1/.test(u)?false:{rejectUnauthorized:false}});mode='postgres'}
+    pool=new Pool({connectionString:u,max:Number(process.env.PG_POOL_MAX)||5,connectionTimeoutMillis:15000,idleTimeoutMillis:30000,keepAlive:true,ssl:/localhost|127\.0\.0\.1/.test(u)?false:{rejectUnauthorized:false}});pool.on('error',e=>console.error('pg idle client error (ignored):',e.message));mode='postgres'}
   else{const{newDb}=require('pg-mem');const mem=newDb();const{Pool}=mem.adapters.createPg();pool=new Pool();mode='pg-mem'}
   const sql=fs.readFileSync(path.join(__dirname,'schema.sql'),'utf8').replace(/--.*$/gm,'');
   for(const st of sql.split(';').map(s=>s.trim()).filter(Boolean))await pool.query(st);
