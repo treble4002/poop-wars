@@ -14,7 +14,7 @@ Without `DATABASE_URL` the server uses **pg-mem** (in-memory Postgres emulator).
 | Var | Needed | What it does |
 |---|---|---|
 | `DATABASE_URL` | prod | Postgres connection string. Tables are created on boot (`src/schema.sql`). |
-| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | prod | Turns on email-code (OTP) login. If either is missing, the dev name-only signup is used. |
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | prod | Project URL (any path such as /rest/v1/ is stripped) and the anon or `sb_publishable_` key. Turns on email-code (OTP) login. If either is missing, the dev name-only signup is used. |
 | `ADMIN_TOKEN` | optional | Enables `POST /api/admin/invites` (header `x-admin-token`). Unset = route hidden. |
 | `PORT` | optional | Default 3737. Render sets it. |
 

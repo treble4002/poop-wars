@@ -1,7 +1,11 @@
 // Auth: Supabase email one-time codes when SUPABASE_URL + SUPABASE_ANON_KEY are set; otherwise dev name-only login.
-const URL_=()=>(process.env.SUPABASE_URL||'').replace(/\/$/,''),KEY=()=>process.env.SUPABASE_ANON_KEY||'';
+// SUPABASE_URL may be pasted with a path (e.g. .../rest/v1/); keep only scheme://host.
+function origin(u){u=String(u||'').trim();if(!u)return'';try{return new URL(u).origin}catch{return''}}
+const URL_=()=>origin(process.env.SUPABASE_URL),KEY=()=>(process.env.SUPABASE_ANON_KEY||'').trim();
+// Legacy anon keys are JWTs (eyJ...) and go in both headers. New sb_publishable_ keys are not JWTs: send them as apikey only.
+const hdrs=()=>{const k=KEY(),h={'Content-Type':'application/json',apikey:k};if(k.startsWith('eyJ'))h.Authorization='Bearer '+k;return h};
 const supabaseEnabled=()=>!!(URL_()&&KEY());
-async function sb(p,body){const r=await fetch(URL_()+'/auth/v1/'+p,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY(),Authorization:'Bearer '+KEY()},body:JSON.stringify(body)});
+async function sb(p,body){const r=await fetch(URL_()+'/auth/v1/'+p,{method:'POST',headers:hdrs(),body:JSON.stringify(body)});
  const j=await r.json().catch(()=>({}));if(!r.ok){const e=Error(j.msg||j.error_description||j.message||'Auth failed');e.status=r.status===429?429:400;throw e}return j}
 // Sends a 6-digit code to the email (Supabase "Email OTP"; set the email template to include {{ .Token }}).
 const sendCode=email=>sb('otp',{email,create_user:true});
@@ -12,4 +16,4 @@ function ageFrom(bd,now=new Date()){const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(Str
  const[y,mo,d]=m.slice(1).map(Number),dt=new Date(Date.UTC(y,mo-1,d));if(dt.getUTCMonth()!==mo-1||dt.getUTCDate()!==d||dt>now)return{error:'Birthdate is not valid'};
  let age=now.getUTCFullYear()-y;if(now.getUTCMonth()+1<mo||(now.getUTCMonth()+1===mo&&now.getUTCDate()<d))age--;if(age>120)return{error:'Birthdate is not valid'};return{age}}
 const validEmail=e=>/^[^\s@]{1,64}@[^\s@]+\.[^\s@]{2,}$/.test(String(e||''))&&String(e).length<=200;
-module.exports={supabaseEnabled,sendCode,verifyCode,ageFrom,validEmail};
+module.exports={origin,supabaseEnabled,sendCode,verifyCode,ageFrom,validEmail};
