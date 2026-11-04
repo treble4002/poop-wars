@@ -1,32 +1,49 @@
-# Poop Wars 💩🚽 (test prototype)
+# Poop Wars 💩🚽 (pilot rebuild)
+Head-to-head toilet-themed mini games for phone browsers. Node server + plain HTML/JS/CSS (no build step).
+
 ## Run it
-Needs Node.js 18 or newer. Run `npm install` once first. That installs the Postgres driver.
+Needs Node.js 18+. `npm install` once.
 ```
-node server.js          # opens on http://localhost:3737  (PORT=xxxx to change)
-./test.sh               # automatic two-player test (server must be running)
+node server.js     # http://localhost:3737 (PORT to change)
+./test.sh          # starts a throwaway in-memory server and runs the end-to-end API tests
+BASE=https://... ADMIN_TOKEN=... node test.js   # test a running server instead (it needs ADMIN_TOKEN set)
 ```
-To try two players on one computer, open one normal browser window and one private/incognito window. Each window counts as a different person.
-To reset all data, stop the server and delete `data.json`.
+Without `DATABASE_URL` the server uses **pg-mem** (in-memory Postgres emulator). Data resets on restart; it's for dev/tests only.
 
-On Render, set `DATABASE_URL` to a Postgres connection string. The app then stores everything in Postgres (one table, `pw_state`) instead of `data.json`.
-## Files
-- `server.js`: the whole backend (accounts, circles, games, leaderboards). It saves everything to `data.json`.
-- `public/index.html`: the whole phone app (screens, games, emoji styling).
-- `test.sh`: Alice and Bob make a circle, play all 3 games, and the script checks the results.
-- `PLAN.md`: the business and product plan, plus a prompt you can paste into Lovable.
+## Environment variables
+| Var | Needed | What it does |
+|---|---|---|
+| `DATABASE_URL` | prod | Postgres connection string. Tables are created on boot (`src/schema.sql`). |
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | prod | Project URL (any path such as /rest/v1/ is stripped) and the anon or `sb_publishable_` key. Turns on email-code (OTP) login. If either is missing, the dev name-only signup is used. |
+| `ADMIN_TOKEN` | optional | Enables `POST /api/admin/invites` (header `x-admin-token`). Unset = route hidden. |
+| `PORT` | optional | Default 3737. Render sets it. |
+
+Supabase setup: Auth → Providers → Email on; edit the "Magic Link" email template to show the code with `{{ .Token }}` so users get a 6-digit code.
+
+## Layout
+- `server.js` boots: db init → bot user → HTTP.
+- `src/db.js` Postgres or pg-mem pool, `tx()` helper. `src/schema.sql` tables: users, circles, circle_members, games, moves, invite_codes, pending_signups, taunts, blocks, reports.
+- `src/store.js` all queries. Moves use **compare-and-swap on `games.version`** inside a transaction (plus a `moves` row with a unique `(game_id, seq)`); a lost race reloads and retries, so two simultaneous moves can't overwrite each other. Stats and leaderboards are computed from finished games (no shared counters to race on).
+- `src/games/<type>.js` one file per game (rules, bot, per-player view); `src/games/index.js` registry and engine.
+- `src/routes.js` API; `src/http.js` static files, auth and premium checks; `src/auth.js` Supabase OTP and the age check.
+- `public/index.html`, `public/css/app.css`, `public/js/app.js` (API, router, screens, trash talk), `public/js/games/<type>.js` (one renderer per game), `public/js/main.js`.
+
+## Accounts, age gate, premium
+- Signup needs a birthdate. The **server** rejects under-13s (403, nothing stored). Ages 13–17 must give a parent email, saved as `owner_email` (the account owner).
+- Free tier: `POST /api/guest` (no account) or a free account can play Plunger Bot. No saved scores, circles, trophies or arena.
+- Premium (`users.premium`) or pilot (`users.pilot`, lifetime full premium) is required on: circles (create/join/view/leave), friend challenges, `/api/scores`, `/api/trophies`, `/api/taunt`.
+- Flags are set by a **single-use invite code** at signup (or later via `POST /api/redeem`). Make codes:
+  `DATABASE_URL=... node scripts/make-invites.js 20 pilot "family"` (kinds: `pilot` or `premium`).
+
+## Trash talk / safety
+Preset taunts only (`GET /api/taunts`); `POST /api/taunt {gameId,key}`; `POST /api/report {userId,gameId?,tauntId?,reason}`; `POST /api/block` and `/api/unblock {userId}`. Blocking stops taunts and challenges both ways. No ad or analytics SDKs.
+
+## Not done yet
+- **Push notifications / turn reminders**: out of scope for this pass. The `moves` table is where a "Bob made his move" hook would go.
+- Payments (RevenueCat) are not wired. `premium` is only set by invite codes.
+- Parent consent email/verification for teen accounts: we store the parent email as owner, but nothing emails the parent yet.
+- Old prototype data (`pw_state` JSON blob) is **not migrated**. Those accounts had no birthdates, so the pilot starts fresh. The old table is left alone.
+- Reports go into the `reports` table. There's no admin review screen yet.
+
 ## Games
-- **Tic-Tac-Toilet**: 🧻 vs 💩, take turns
-- **Connect Four-Flush**: drop pieces, get 4 in a row
-- **Flush Frenzy**: tap 30 times as fast as you can. Each player plays on their own time. You can't see the other player's score until both of you have played. The faster time wins.
-
-## Games (6)
-Tic-Tac-Toilet, Connect Four-Flush, Follow the Flush (4-pad memory pattern race: same server-made pattern for both players, longest correct pattern wins, faster total input time breaks ties; Flush Frenzy was removed and its old data dropped), Stall Wars (dots & boxes 5x5), Sink the Stink (battleship 8x8, ships 4/3/3/2, random placement), Hang-Ten TP (hangman, challenger may set the word; fewest misses wins).
-
-## Plunger Bot 🪠
-Every game can be played against Plunger Bot (Easy/Hard). Bot games resolve instantly and count only on a separate vs-Bot record, never in rankings.
-
-## Leaderboards
-Per-game + overall, globally and per circle, plus circle leaders per game.
-
-## Tests
-`node test.js` (or `./test.sh`); set `BASE=https://...` to test a live URL.
+Tic-Tac-Toilet, Connect Four-Flush, Follow the Flush, Stall Wars, Sink the Stink, Hang-Ten TP. Each one can be played vs Plunger Bot 🪠 (Easy/Hard). Bot games only count on the separate vs-Bot record.
