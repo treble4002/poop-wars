@@ -17,10 +17,12 @@ async function playOut(tok,g){g=await api('game?id='+g.id,tok);for(let n=0;n<200
  ok(inv.codes&&inv.codes.length===4,'Admin: generated 4 pilot invite codes');const[ic1,ic2,ic3,ic4]=inv.codes||[];
  ok((await api('signup',null,{name:'NoBox'})).status===400,'Signup without the 13+/rules checkbox rejected on the server');
  ok((await api('signup',null,{name:'Truthy',acceptRules:'yes'})).status===400,'Checkbox must be literally true');
- const teen=await api('signup',null,{name:'Teen',acceptRules:true,inviteCode:ic3});ok(teen.token&&teen.pilot,'Signup with checkbox + pilot invite accepted (no birthdate/parent email)');
- const A=await api('signup',null,{name:'Alice',acceptRules:true,inviteCode:ic1}),Bo=await api('signup',null,{name:'Bob',acceptRules:true,inviteCode:ic2});
+ const su=async(name,code)=>{const u=await api('signup',null,{name,acceptRules:true,inviteCode:code});if(u.token&&code){await api('redeem',u.token,{code});Object.assign(u,await api('me',u.token))}return u};
+ const teen=await su('Teen',ic3);ok(teen.token&&teen.pilot,'Signup with checkbox + pilot invite accepted (no birthdate/parent email)');
+ const A=await su('Alice',ic1),Bo=await su('Bob',ic2);
  ok(A.premium&&A.pilot&&Bo.pilot,'Pilot invite grants premium + pilot flag');
- ok((await api('signup',null,{name:'Eve',acceptRules:true,inviteCode:ic1})).error,'Invite code is single-use');
+ const Eve=await api('signup',null,{name:'Eve',acceptRules:true,inviteCode:'BADCODE1'});ok(Eve.token&&!Eve.premium,'Signup ignores any invite code (never blocks)');
+ ok((await api('redeem',Eve.token,{code:ic1})).error,'Invite code is single-use (redeem after login)');
  const F=await api('signup',null,{name:'Freddie',acceptRules:true});ok(F.token&&!F.premium,'Signup without invite = free tier');
  const guest=await api('guest',null,{});
  for(const[who,tok]of[['guest',guest.token],['free user',F.token]]){

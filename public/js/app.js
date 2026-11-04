@@ -25,9 +25,9 @@ async function go(v,a,b){clearInterval(poll);if(v!=='game')CUR=null;if(QM&&v!=='
  if(!T)return signup();CFG=CFG||await api('config');me=await api('me');document.getElementById('nav').style.display='flex';
  if(v==='circle')return circle(a,b);if(v==='game')return game(a);if(v==='lb')return lb(a);if(v==='pick')return pick(a);if(v==='games')return games();if(v==='quick')return quick(a);home()}catch(e){if(/Sign up/.test(e.message)){T=null;localStorage.removeItem('pwToken');signup()}else err(e)}}
 let CFG=null,TICKET=null;
-// Deep links: /play?invite=CODE prefills the invite field; /play?join=CODE prefills circle join.
+// Deep links: /play?invite=CODE is redeemed silently after signup (never blocks); /play?join=CODE prefills circle join.
 const QS=new URLSearchParams(location.search),INVITE=(QS.get('invite')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8),JOIN=(QS.get('join')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
-function prefill(){if(INVITE){if(window.ic&&!ic.value)ic.value=INVITE;if(window.rc&&!rc.value)rc.value=INVITE}if(JOIN&&window.cc&&!cc.value)cc.value=JOIN}
+function prefill(){if(INVITE){if(window.rc&&!rc.value)rc.value=INVITE}if(JOIN&&window.cc&&!cc.value)cc.value=JOIN}
 new MutationObserver(prefill).observe(document.getElementById('app'),{childList:true});
 async function signup(){CFG=CFG||await api('config');
  const guest=`<div class=card><b>Just want to play?</b><br><small>Play Plunger Pete right now, no account needed. Scores are not saved.</small><br><button class=alt onclick="doGuest()">🪠 Play as guest</button></div>`;
@@ -35,7 +35,7 @@ async function signup(){CFG=CFG||await api('config');
   ${INVITE?`<small>🎟️ Invite code <b>${INVITE}</b> will be applied after you confirm your email.</small>`:''}<div id=codebox style="display:none"><label>Code from your email (6–8 digits)</label><input id=oc inputmode=numeric autocomplete=one-time-code maxlength=8 pattern="[0-9]{6,8}" oninput="codeInput(this)"><button onclick="checkCode()">Sign in</button></div></div>${guest}`;return}
  $.innerHTML=`<div class="card big">Head-to-head mini games for your bathroom break.</div><div class=card>
  <label>Silly name</label><input id=n placeholder="e.g. Sir Plops" maxlength=20>
- <label>Invite code (optional)</label><input id=ic maxlength=8 style="text-transform:uppercase">
+
  <label style="display:flex;gap:10px;align-items:flex-start;font-weight:600"><input id=ar type=checkbox style="width:24px;height:24px;flex:none;margin-top:2px"><span>I certify I am 13 or older and agree to the <a href="/rules" target="_blank">Poop Wars rules</a>.</span></label>
  <button onclick="doSignup()">Enter the stall 🚪</button></div>${guest}`}
 async function sendCode(){try{await api('auth/start',{email:em.value});codebox.style.display='block'}catch(e){err(e)}}
@@ -45,7 +45,7 @@ function codeInput(el){const d=el.value.replace(/\D/g,'').slice(0,8);if(el.value
  if(d.length===8)checkCode();else if(d.length>=6)codeTimer=setTimeout(checkCode,1200)}
 async function checkCode(){clearTimeout(codeTimer);const c=oc.value.replace(/\D/g,'');if(!/^\d{6,8}$/.test(c))return alert('Enter the 6 to 8 digit code from your email.');if(codeBusy)return;codeBusy=true;try{const r=await api('auth/verify',{email:em.value,code:c});if(r.token){T=r.token;localStorage.pwToken=T;return go('home')}TICKET=r.ticket;signup()}catch(e){err(e)}finally{codeBusy=false}}
 async function doGuest(){try{const u=await api('guest',{});T=u.token;localStorage.pwToken=T;go('home')}catch(e){err(e)}}
-async function doSignup(){if(!ar.checked)return alert('Tick the box to confirm you are 13 or older and agree to the rules.');try{const u=await api('signup',{name:n.value,acceptRules:ar.checked,inviteCode:ic.value||undefined,ticket:TICKET||undefined});T=u.token;TICKET=null;localStorage.pwToken=T;go('home')}catch(e){err(e)}}
+async function doSignup(){if(!ar.checked)return alert('Tick the box to confirm you are 13 or older and agree to the rules.');try{const u=await api('signup',{name:n.value,acceptRules:ar.checked,ticket:TICKET||undefined});T=u.token;TICKET=null;localStorage.pwToken=T;if(INVITE){try{await api('redeem',{code:INVITE})}catch(_){}}go('home')}catch(e){err(e)}}
 async function redeem(){try{await api('redeem',{code:rc.value});go('home')}catch(e){err(e)}}
 function logout(){localStorage.removeItem('pwToken');T=null;go('home')}
 async function home(){const gs=await api('games'),turns=gs.filter(g=>g.myTurn).length;
@@ -53,7 +53,7 @@ async function home(){const gs=await api('games'),turns=gs.filter(g=>g.myTurn).l
  <h2>🕹️ The Arcade</h2><div class=arcade>${Object.entries(G).map(([k,x])=>`<div class=tile style="background:${x.c}" onclick="go('pick','${k}')"><span>${x.e}</span><b>${x.n}</b><small>${x.d}</small></div>`).join('')}</div>
  ${!me.premium?`<h2>👑 Premium</h2><div class=card>Circles with friends, saved scores, trophies and the trash talk arena are premium.${me.kind==='guest'?`<br><button onclick="logout()">Make an account</button>`:`<input id=rc placeholder="Have an invite code?" maxlength=8 style="text-transform:uppercase"><button onclick="redeem()">Redeem</button>`}</div>`:`
  <h2>👨‍👩‍👧 Your circles</h2>${me.circleList.map(c=>`<div class="card row" onclick="go('circle','${c.id}')"><b>${esc(c.name)}</b><span>Code: ${c.code} ›</span></div>`).join('')||'<div class=card>Make a circle and share the code in your family group chat.</div>'}
- <div class=card><input id=cn placeholder="New circle name (e.g. The Throne Room)"><button onclick="mk()">Create circle</button><hr><input id=cc placeholder="Invite code" maxlength=6 style="text-transform:uppercase"><button class=alt onclick="jn()">Join circle</button></div>`}${me.pilot?'<small class=muted>🧪 Pilot tester: lifetime premium</small>':''}`;
+ <div class=card><input id=cn placeholder="New circle name (e.g. The Throne Room)"><button onclick="mk()">Create circle</button><hr><input id=cc placeholder="Circle code" maxlength=6 style="text-transform:uppercase"><button class=alt onclick="jn()">Join circle</button></div>`}${me.pilot?'<small class=muted>🧪 Pilot tester: lifetime premium</small>':''}`;
  poll=setInterval(async()=>{const g2=await api('games',null,{retries:2}).catch(()=>null);if(g2&&g2.filter(g=>g.myTurn).length!==turns)home()},6000)}
 async function games(){const gs=await api('games');
  $.innerHTML=`<h2>🎮 Your games</h2>${gs.map(g=>`<div class="card row" onclick="go('game','${g.id}')"><span>${G[g.type].e} ${G[g.type].n}<br><small>${g.random?'🎲 ':''}vs ${esc(g.names[1-g.me])}${g.vsBot?' ('+g.diff+')':''}</small></span><b>${g.status==='done'?(g.winner===me.id?'🏆 Won':g.winner==='draw'?'🤝 Draw':'💀 Lost'):g.myTurn?'👉 Your turn':'⏳ Waiting'}</b></div>`).join('')||'<div class=card>No games yet. Pick one in the Arcade!</div>'}`;

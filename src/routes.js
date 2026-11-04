@@ -33,7 +33,7 @@ const routes={
  // Create the account. Requires acceptRules:true (13+ and rules); the acceptance time is stored.
  'POST /api/signup':[PUB,async({b})=>{const p=await profileChecks(b);if(p.err)return p.err;let email=null,authId=null;
   if(A.supabaseEnabled()){const t=await S.takePending(b.ticket);if(!t)return fail(401,'Verify your email code first');email=t.email;authId=t.auth_id}
-  const r=await S.createUser({name:p.name,email,authId,inviteCode:p.inviteCode,acceptedRules:true});const u=await S.userById(r.id);
+  const r=await S.createUser({name:p.name,email,authId,acceptedRules:true});const u=await S.userById(r.id);
   return[200,{id:r.id,token:r.token,name:u.name,premium:isPremium(u),pilot:u.pilot,premiumSource:isPremium(u)?(u.premium||u.pilot?u.premium_source||'invite':'open_pilot'):null}]}],
  'POST /api/redeem':[ANY,async({b,u})=>{if(u.kind!=='user')return fail(403,'Make an account first');
   return await S.redeemInvite(u.id,String(b.code||'').toUpperCase().trim())?[200,{ok:true}]:fail(400,'Invite code is invalid or already used')}],

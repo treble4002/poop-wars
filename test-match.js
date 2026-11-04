@@ -2,7 +2,7 @@
 const B=(process.env.BASE||'http://localhost:3737')+'/api/';let f=0;const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m);if(!c)f++};
 const zz=ms=>new Promise(r=>setTimeout(r,ms));
 async function api(p,tok,body,h={}){const r=await fetch(B+p,{method:body?'POST':'GET',headers:{'Content-Type':'application/json','x-token':tok||'',...h},body:body&&JSON.stringify(body)});const j=await r.json();if(j&&typeof j==='object'&&!Array.isArray(j))j.status=j.status??r.status;j._s=r.status;return j}
-let n=0;const su=async(name,inviteCode)=>{const u=await api('signup',null,{name:name+(++n)+'_'+(Date.now()%1e5),acceptRules:true,inviteCode});return u};
+let n=0;const su=async(name,inviteCode)=>{const u=await api('signup',null,{name:name+(++n)+'_'+(Date.now()%1e5),acceptRules:true});if(u.token&&inviteCode){await api('redeem',u.token,{code:inviteCode});u.premium=true}return u};
 // poll everybody until each has a game or attempts run out
 async function settle(us,rounds=12){const got={};for(let i=0;i<rounds;i++){await Promise.all(us.filter(u=>!got[u.id]).map(async u=>{const r=await api('match/poll',u.token);if(r.gameId)got[u.id]=r.gameId}));await zz(30)}return got}
 (async()=>{

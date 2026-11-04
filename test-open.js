@@ -3,7 +3,7 @@ if(!process.env.TEST_PG)delete process.env.DATABASE_URL;const db=require('./src/
 let f=0;const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m);if(!c)f++};
 (async()=>{await db.init();const bd='2000-01-01';
  process.env.OPEN_PREMIUM='true';const o=await S.createUser({name:'Open',acceptedRules:true});
- const[code]=await S.createInvites(1,'pilot',null);const p=await S.createUser({name:'Pilot',acceptedRules:true,inviteCode:code});
+ const[code]=await S.createInvites(1,'pilot',null);const p=await S.createUser({name:'Pilot',acceptedRules:true});await S.redeemInvite(p.id,code);
  let uo=await S.userById(o.id),up=await S.userById(p.id);
  ok(uo.premium_source==='open_pilot'&&isPremium(uo),'OPEN_PREMIUM on: new signup is open_pilot premium');
  ok(up.pilot&&up.premium_source==='invite_pilot'&&isPremium(up),'Invite pilot is tagged invite_pilot');
