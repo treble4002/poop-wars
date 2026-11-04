@@ -1,0 +1,21 @@
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:#f6efe3;color:#3b2616;max-width:480px;margin:auto;padding:10px 10px 84px}
+h1{text-align:center;margin:6px 0;font-size:28px}h2{margin:14px 0 6px;font-size:19px}.card{background:#fff;border-radius:16px;padding:12px;margin:8px 0;box-shadow:0 2px 6px #0002}
+button{background:#7b4a26;color:#fff;border:0;border-radius:12px;padding:11px 14px;font-size:16px;margin:3px 2px;cursor:pointer}button.alt{background:#d9c2a3;color:#3b2616}button:disabled{opacity:.35}
+button.sm{padding:7px 9px;font-size:15px}input{font-size:16px;padding:11px;border-radius:12px;border:2px solid #d9c2a3;width:100%;margin:4px 0}
+.row{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #eee}
+.arcade{display:grid;grid-template-columns:1fr 1fr;gap:10px}.tile{border-radius:18px;padding:14px 8px;text-align:center;color:#fff;box-shadow:0 3px 0 #0004;cursor:pointer;user-select:none}
+.tile b{display:block;font-size:15px;margin-top:4px}.tile span{font-size:40px}.tile small{opacity:.9;font-size:12px}
+.tile:active{transform:translateY(2px)}
+.tabs{display:flex;overflow-x:auto;gap:4px;padding-bottom:4px}.tabs button{white-space:nowrap;flex:none}.tabs .on{background:#e0a030}
+.ttt{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.ttt div{aspect-ratio:1;background:#e9dcc8;border-radius:12px;font-size:44px;display:flex;align-items:center;justify-content:center}
+.c4{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;background:#5d8bb0;padding:6px;border-radius:12px}.c4 div{aspect-ratio:1;background:#f6efe3;border-radius:50%;font-size:24px;display:flex;align-items:center;justify-content:center}
+.dots{display:grid;grid-template-columns:repeat(4,16px 1fr) 16px;grid-template-rows:repeat(4,16px auto) 16px}
+.dots .d{background:radial-gradient(circle,#3b2616 35%,transparent 40%)}.dots .h,.dots .v{background:#eee3d2;border-radius:6px;margin:3px;cursor:pointer}
+.dots .p0{background:#7b4a26}.dots .p1{background:#e0a030}.dots .b{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:30px}
+.sea{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;background:#5d8bb0;padding:4px;border-radius:10px}.sea div{aspect-ratio:1;background:#cfe3f0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.sea.small div{font-size:13px}.sea .ship{background:#d9c2a3}.sea .tap{cursor:pointer}
+.kb{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.kb button{margin:0;padding:10px 0}
+.word{font-size:30px;letter-spacing:6px;text-align:center;font-weight:bold;font-family:monospace;word-break:break-all}
+.big{font-size:18px;text-align:center}.pads{display:grid;grid-template-columns:1fr 1fr;gap:12px}.pads div{aspect-ratio:1;border-radius:20px;font-size:56px;display:flex;align-items:center;justify-content:center;opacity:.45;user-select:none;touch-action:manipulation;transition:opacity .08s,transform .08s}.pads div.lit{opacity:1;transform:scale(1.05);box-shadow:0 0 24px #fff8}.tapper{font-size:120px;user-select:none;text-align:center;touch-action:manipulation}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;justify-content:space-around;padding:6px;box-shadow:0 -2px 6px #0002}nav button{flex:1}
+.taunts{display:flex;flex-wrap:wrap;gap:4px}.taunts button{font-size:13px;padding:6px 8px}.muted{opacity:.7;font-size:13px}label{display:block;font-size:14px;margin-top:6px}

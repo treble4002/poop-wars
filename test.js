@@ -1,7 +1,7 @@
 // End-to-end API test. Server must be running. BASE=http://localhost:3737 node test.js
 const B=(process.env.BASE||'http://localhost:3737')+'/api/';let fails=0;
 const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m);if(!c)fails++};
-async function api(p,tok,body){const r=await fetch(B+p,{method:body?'POST':'GET',headers:{'Content-Type':'application/json','x-token':tok||''},body:body&&JSON.stringify(body)});const j=await r.json();return r.ok?j:{error:j.error,status:r.status}}
+async function api(p,tok,body,h={}){const r=await fetch(B+p,{method:body?'POST':'GET',headers:{'Content-Type':'application/json','x-token':tok||'',...h},body:body&&JSON.stringify(body)});const j=await r.json();return r.ok?j:{error:j.error,status:r.status}}
 const rnd=a=>a[Math.random()*a.length|0];
 function legal(g){switch(g.type){
  case'ttt':return{pos:rnd([...g.board.keys()].filter(i=>g.board[i]==null))};
@@ -12,7 +12,23 @@ function legal(g){switch(g.type){
  case'follow':return g.started?{len:0,ms:0}:{start:true}}}
 async function playOut(tok,g){g=await api('game?id='+g.id,tok);for(let n=0;n<200&&g.status==='active';n++){if(!g.myTurn)return g;const r=await api('move',tok,{gameId:g.id,...legal(g)});if(r.error)throw Error(r.error);g=r}return g}
 (async()=>{
- const A=await api('signup',null,{name:'Alice'}),Bo=await api('signup',null,{name:'Bob'});
+ // ---- accounts, age gate, invites, premium ----
+ const inv=await api('admin/invites',null,{count:4,kind:'pilot'},{'x-admin-token':process.env.ADMIN_TOKEN||'test-admin'});
+ ok(inv.codes&&inv.codes.length===4,'Admin: generated 4 pilot invite codes');const[ic1,ic2,ic3,ic4]=inv.codes||[];
+ const yrs=n=>{const d=new Date();d.setUTCFullYear(d.getUTCFullYear()-n);d.setUTCDate(d.getUTCDate()-1);return d.toISOString().slice(0,10)};
+ ok((await api('signup',null,{name:'Kid',birthdate:yrs(12)})).status===403,'Age gate: under-13 blocked on the server');
+ ok((await api('signup',null,{name:'NoBday'})).status===400,'Age gate: birthdate required');
+ ok((await api('signup',null,{name:'Teen',birthdate:yrs(15)})).status===400,'Teen (15) without parent email rejected');
+ const teen=await api('signup',null,{name:'Teen',birthdate:yrs(15),parentEmail:'mom@example.com',inviteCode:ic3});ok(teen.token&&teen.pilot,'Teen with parent email + pilot invite accepted');
+ const A=await api('signup',null,{name:'Alice',birthdate:yrs(30),inviteCode:ic1}),Bo=await api('signup',null,{name:'Bob',birthdate:yrs(40),inviteCode:ic2});
+ ok(A.premium&&A.pilot&&Bo.pilot,'Pilot invite grants premium + pilot flag');
+ ok((await api('signup',null,{name:'Eve',birthdate:yrs(30),inviteCode:ic1})).error,'Invite code is single-use');
+ const F=await api('signup',null,{name:'Freddie',birthdate:yrs(25)});ok(F.token&&!F.premium,'Signup without invite = free tier');
+ const guest=await api('guest',null,{});
+ for(const[who,tok]of[['guest',guest.token],['free user',F.token]]){
+  ok((await api('circles',tok,{name:'X'})).status===402&&(await api('scores',tok)).status===402&&(await api('trophies',tok)).status===402,`Premium gate: ${who} blocked from circles/scores/trophies`);
+  let gg=await api('challenge',tok,{opponentId:'bot',type:'ttt',difficulty:'easy'});gg=await playOut(tok,gg);ok(gg.status==='done',`Free tier: ${who} can play Plunger Bot`)}
+ ok(!(await api('leaderboard')).some(x=>x.name==='Guest'),'Guests never on leaderboard');
  const C=await api('circles',A.token,{name:'Fam'});await api('circles/join',Bo.token,{code:C.code});
  const ch=(t,extra={})=>api('challenge',A.token,{circleId:C.id,opponentId:Bo.id,type:t,...extra});
  const mv=(tok,g,b)=>api('move',tok,{gameId:g.id,...b});
@@ -65,4 +81,18 @@ async function playOut(tok,g){g=await api('game?id='+g.id,tok);for(let n=0;n<200
  ok(c4w===4,'Bot C4 hard beats random play 4/4');
  const me=await api('me',A.token);ok(JSON.stringify(me.stats)===before&&me.botStats.all.w+me.botStats.all.l+me.botStats.all.d>=22,'Bot games go to separate vs-Bot record, not main stats');
  ok(!(await api('leaderboard')).some(x=>x.name.includes('Plunger')),'Plunger Bot not on global leaderboard');
+ // ---- safe concurrent moves ----
+ g=await ch('ttt');const race=await Promise.all([mv(A.token,g,{pos:0}),mv(A.token,g,{pos:1}),mv(A.token,g,{pos:2})]);
+ g=await api('game?id='+g.id,A.token);ok(race.filter(r=>!r.error).length===1&&g.board.filter(x=>x!=null).length===1,'Concurrency: 3 simultaneous moves on one turn -> exactly 1 applied');
+ g=await ch('follow');await mv(A.token,g,{start:true});await mv(Bo.token,g,{start:true});await new Promise(r=>setTimeout(r,600));
+ await Promise.all([mv(A.token,g,{len:2,ms:500}),mv(Bo.token,g,{len:1,ms:300})]);g=await api('game?id='+g.id,A.token);
+ ok(g.status==='done'&&g.res[A.id]&&g.res[Bo.id]&&g.winner===A.id,'Concurrency: simultaneous Follow submits both saved (no lost update)');
+ // ---- trash talk (preset only), report, block ----
+ const tl=await api('taunts');ok(tl.plop,'Preset taunt list served');
+ ok((await api('taunt',A.token,{gameId:g.id,key:'you stink lol'})).error,'Free-typed taunt rejected');
+ const tt=await api('taunt',A.token,{gameId:g.id,key:'plop'});const gB=await api('game?id='+g.id,Bo.token);ok(tt.id&&gB.taunts[0].text===tl.plop,'Preset taunt delivered');
+ ok((await api('taunt',F.token,{gameId:g.id,key:'plop'})).status===402,'Arena is premium-only');
+ ok((await api('report',Bo.token,{userId:A.id,gameId:g.id,tauntId:tt.id,reason:'mean'})).id,'Report a taunt');
+ await api('block',Bo.token,{userId:A.id});ok((await api('taunt',A.token,{gameId:g.id,key:'gg'})).status===403&&(await ch('ttt')).status===403,'Block stops taunts and challenges');
+ await api('unblock',Bo.token,{userId:A.id});ok(!(await ch('ttt')).error,'Unblock restores challenges');
  console.log(fails?`\n${fails} FAILED`:'\nALL PASSED');process.exit(fails?1:0)})().catch(e=>{console.error('CRASH',e);process.exit(1)});
