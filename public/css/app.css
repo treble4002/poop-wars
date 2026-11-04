@@ -19,3 +19,9 @@ button.sm{padding:7px 9px;font-size:15px}input{font-size:16px;padding:11px;borde
 .big{font-size:18px;text-align:center}.pads{display:grid;grid-template-columns:1fr 1fr;gap:12px}.pads div{aspect-ratio:1;border-radius:20px;font-size:56px;display:flex;align-items:center;justify-content:center;opacity:.45;user-select:none;touch-action:manipulation;transition:opacity .08s,transform .08s}.pads div.lit{opacity:1;transform:scale(1.05);box-shadow:0 0 24px #fff8}.tapper{font-size:120px;user-select:none;text-align:center;touch-action:manipulation}
 nav{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;justify-content:space-around;padding:6px;box-shadow:0 -2px 6px #0002}nav button{flex:1}
 .taunts{display:flex;flex-wrap:wrap;gap:4px}.taunts button{font-size:13px;padding:6px 8px}.muted{opacity:.7;font-size:13px}label{display:block;font-size:14px;margin-top:6px}
+.searching .spin{font-size:56px;display:inline-block;animation:qmspin 1.4s ease-in-out infinite}
+@keyframes qmspin{0%,100%{transform:rotate(-15deg) scale(1)}50%{transform:rotate(15deg) scale(1.15)}}
+.emoji{display:flex;flex-wrap:wrap;gap:6px}.emoji button{font-size:22px;padding:6px 10px;margin:0}
+.searching .spin{font-size:56px;display:inline-block;animation:qmspin 1.4s ease-in-out infinite}
+@keyframes qmspin{0%,100%{transform:rotate(-15deg) scale(1)}50%{transform:rotate(15deg) scale(1.15)}}
+.emoji{display:flex;flex-wrap:wrap;gap:6px}.emoji button{font-size:22px;padding:6px 10px;margin:0;width:auto}

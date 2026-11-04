@@ -90,7 +90,7 @@ async function playOut(tok,g){g=await api('game?id='+g.id,tok);for(let n=0;n<200
  const tl=await api('taunts');ok(tl.plop,'Preset taunt list served');
  ok((await api('taunt',A.token,{gameId:g.id,key:'you stink lol'})).status===400,'Unknown preset key rejected');
  const tt=await api('taunt',A.token,{gameId:g.id,key:'plop'});const gB=await api('game?id='+g.id,Bo.token);ok(tt.id&&gB.taunts[0].text===tl.plop,'Preset taunt delivered');
- ok((await api('taunt',F.token,{gameId:g.id,key:'plop'})).status===402,'Arena is premium-only');
+ ok([402,404].includes((await api('taunt',F.token,{gameId:g.id,key:'plop'})).status),'Outsider (free, not a player) cannot use the circle arena');
  ok((await api('report',Bo.token,{userId:A.id,gameId:g.id,tauntId:tt.id,reason:'mean'})).id,'Report a taunt');
  await api('block',Bo.token,{userId:A.id});ok((await api('taunt',A.token,{gameId:g.id,key:'gg'})).status===403&&(await ch('ttt')).status===403,'Block stops taunts and challenges');
  await api('unblock',Bo.token,{userId:A.id});ok(!(await ch('ttt')).error,'Unblock restores challenges');

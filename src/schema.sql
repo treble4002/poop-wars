@@ -99,3 +99,14 @@ ALTER TABLE reports ADD COLUMN IF NOT EXISTS message text;
 
 -- added: signup is a "13+ and rules" checkbox; we store when it was accepted. No birthdate or parent email is collected any more.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS accepted_rules_at timestamptz;
+
+-- added: quick match (random opponent). One row per waiting user. game_id is set atomically when someone claims them.
+CREATE TABLE IF NOT EXISTS match_queue (
+  user_id text PRIMARY KEY REFERENCES users(id),
+  type text NOT NULL,
+  joined_ms bigint NOT NULL,
+  seen_ms bigint NOT NULL,
+  game_id text
+);
+CREATE INDEX IF NOT EXISTS match_queue_type ON match_queue(type, joined_ms);
+ALTER TABLE games ADD COLUMN IF NOT EXISTS random boolean NOT NULL DEFAULT false;

@@ -8,5 +8,5 @@ function botAct(g){const bi=g.players.indexOf(BOT);if(bi<0)return;const m=GAMES[
 function newGame(base,b,vsBot){const g={...base,turn:0,status:'active',winner:null};GAMES[g.type].init(g,b,vsBot);return g}
 function view(g,uid,names){const me=g.players.indexOf(uid),m=GAMES[g.type],done=g.status==='done';
  const o={id:g.id,type:g.type,circleId:g.circleId,players:g.players,names,turn:g.turn,status:g.status,winner:g.winner,updated:g.updated,diff:g.diff,me,
-  myTurn:m.myTurn(g,me),last:g.last,vsBot:g.players.includes(BOT)};m.view(g,o,me,uid,done);return o}
+  myTurn:m.myTurn(g,me),last:g.last,vsBot:g.players.includes(BOT),random:!!g.random};m.view(g,o,me,uid,done);return o}
 module.exports={GAMES,TYPES,applyMove,botAct,newGame,view};

@@ -33,7 +33,7 @@ Supabase setup: Auth → Providers → Email on; edit the "Magic Link" email tem
 ## Accounts, age gate, premium
 - Signup needs the checkbox "I certify I am 13 or older and agree to the Poop Wars rules." The **server** rejects signup unless `acceptRules === true` and stores `users.accepted_rules_at`. We don't collect a birthdate or parent email; the old `birthdate`/`owner_email` columns are no longer written. `/rules` (also `/privacy`) is the rules and privacy page. Set `CONTACT_EMAIL` to show an account-deletion email address there.
 - Free tier: `POST /api/guest` (no account) or a free account can play Plunger Pete. No saved scores, circles, trophies or arena.
-- Premium (`users.premium`) or pilot (`users.pilot`, lifetime full premium) is required on: circles (create/join/view/leave), friend challenges, `/api/scores`, `/api/trophies`, `/api/taunt`.
+- Premium (`users.premium`) or pilot (`users.pilot`, lifetime full premium) is required on: circles (create/join/view/leave), friend challenges, `/api/scores`, `/api/trophies`, and `/api/taunt` in circle games.
 - Flags are set by a **single-use invite code** at signup (or later via `POST /api/redeem`). Make codes:
   `DATABASE_URL=... node scripts/make-invites.js 20 pilot "family"` (kinds: `pilot` or `premium`).
 
@@ -48,3 +48,10 @@ Premium-only. Preset taunts (`GET /api/taunts`) or free text: `POST /api/taunt {
 
 ## Games
 Tic-Tac-Toilet, Connect Four-Flush, Follow the Flush, Stall Wars, Sink the Stink, Hang-Ten TP. Each one can be played vs Plunger Pete 🪠 (Easy/Hard). Games vs Plunger Pete only count on the separate vs-Bot record.
+
+## Quick match (random opponents)
+- Any signed-in account (`kind='user'`, not guests) can use it; **not premium-gated** (it is the free on-ramp, and during OPEN_PREMIUM everyone is premium anyway).
+- `POST /api/match/join {type}`, `GET /api/match/poll` (~every 1.5s), `POST /api/match/cancel`. Queue table `match_queue`; entries with no poll for 2 min expire (`MATCH_STALE_MS`).
+- Pairing is one conditional `UPDATE ... WHERE user_id IN (me, them) AND game_id IS NULL` that must claim both rows, in the same transaction as the game insert, so concurrent joins make exactly one pair. Never yourself, never someone either of you blocked, same game type only. Longest waiter moves first.
+- Players only see display names (never emails). Chat in random games: preset taunts + preset emoji only (free text rejected server-side). Free text (60 chars, filtered) only in circle games while both players still share the circle. Chat is wiped when the game ends; report/block work in both.
+- Leaderboards: quick-match results count on the global overall + per-game boards and your personal record (same as other human-vs-human games). They don't count on circle boards (no circle). Bot games stay separate.

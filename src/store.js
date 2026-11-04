@@ -38,8 +38,33 @@ const members=cid=>db.all('SELECT u.id,u.name FROM circle_members m JOIN users u
 const isMember=async(cid,uid)=>!!(await db.one('SELECT 1 AS x FROM circle_members WHERE circle_id=$1 AND user_id=$2',[cid,uid]));
 const circlesOf=uid=>db.all('SELECT c.id,c.name,c.code FROM circle_members m JOIN circles c ON c.id=m.circle_id WHERE m.user_id=$1 ORDER BY m.joined_at',[uid]);
 // games
-async function insertGame(g){g.updated=Date.now();await db.q('INSERT INTO games(id,type,circle_id,p0,p1,status,winner,state,version,updated_ms) VALUES($1,$2,$3,$4,$5,$6,$7,$8,0,$9)',
- [g.id,g.type,g.circleId,g.players[0],g.players[1],g.status,g.winner,JSON.stringify(g),g.updated])}
+const GAME_INS='INSERT INTO games(id,type,circle_id,p0,p1,status,winner,state,version,updated_ms,random) VALUES($1,$2,$3,$4,$5,$6,$7,$8,0,$9,$10)';
+const gameRow=g=>[g.id,g.type,g.circleId,g.players[0],g.players[1],g.status,g.winner,JSON.stringify(g),g.updated,!!g.random];
+async function insertGame(g){g.updated=Date.now();await db.q(GAME_INS,gameRow(g))}
+// ---- quick match queue ----
+// Race-free pairing: a pair is made by ONE conditional UPDATE that claims both queue rows (yours and theirs) only while both are
+// still unclaimed (game_id IS NULL), in the same transaction as the game insert. Postgres row locks make a second, concurrent claim
+// on either row re-check and find game_id set, so it claims fewer than 2 rows and is undone. Each person ends up in at most one game.
+const QUEUE_STALE_MS=Number(process.env.MATCH_STALE_MS)||120000;
+async function matchStep(uid,type,makeGame,{join=false}={}){const now=Date.now();
+ await db.q('DELETE FROM match_queue WHERE (game_id IS NULL AND seen_ms<$1) OR (game_id IS NOT NULL AND seen_ms<$2)',[now-QUEUE_STALE_MS,now-600000]);
+ let mine=await db.one('SELECT type,joined_ms,game_id FROM match_queue WHERE user_id=$1',[uid]);
+ if(mine&&mine.game_id){await db.q('DELETE FROM match_queue WHERE user_id=$1',[uid]);return{gameId:mine.game_id}}
+ if(!mine&&!join)return{gone:true};
+ if(!mine||join&&mine.type!==type){await db.q('INSERT INTO match_queue(user_id,type,joined_ms,seen_ms) VALUES($1,$2,$3,$3) ON CONFLICT (user_id) DO UPDATE SET type=$2,joined_ms=$3,seen_ms=$3 WHERE match_queue.game_id IS NULL',[uid,type,now]);mine={type,joined_ms:now}}
+ else await db.q('UPDATE match_queue SET seen_ms=$1 WHERE user_id=$2',[now,uid]);
+ const t=mine.type;
+ const blocked=new Set((await db.all('SELECT blocker_id,blocked_id FROM blocks WHERE blocker_id=$1 OR blocked_id=$1',[uid])).map(r=>r.blocker_id===uid?r.blocked_id:r.blocker_id));
+ const cands=(await db.all('SELECT user_id FROM match_queue WHERE type=$1 AND game_id IS NULL AND user_id<>$2 AND seen_ms>=$3 ORDER BY joined_ms LIMIT 50',[t,uid,now-QUEUE_STALE_MS]))
+  .filter(c=>!blocked.has(c.user_id)).slice(0,5);
+ for(const c of cands){const g=makeGame(t,[c.user_id,uid]);g.updated=Date.now();   // whoever waited longer moves first
+  const won=await db.tx(async cl=>{const r=await cl.query('UPDATE match_queue SET game_id=$1,seen_ms=$2 WHERE user_id IN ($3,$4) AND game_id IS NULL RETURNING user_id',[g.id,now,c.user_id,uid]);
+   if(r.rows.length!==2){await cl.query('UPDATE match_queue SET game_id=NULL WHERE game_id=$1',[g.id]);const e=Error('lost');e.lost=true;throw e}
+   await cl.query(GAME_INS,gameRow(g));return true}).catch(e=>{if(!e.lost)console.error('match claim',e.message);return false});
+  if(won){await db.q('DELETE FROM match_queue WHERE user_id=$1',[uid]);return{gameId:g.id}}
+  const still=await db.one('SELECT game_id FROM match_queue WHERE user_id=$1',[uid]);if(still&&still.game_id){await db.q('DELETE FROM match_queue WHERE user_id=$1',[uid]);return{gameId:still.game_id}}}
+ return{waiting:true,type:t,since:Number(mine.joined_ms)}}
+async function cancelMatch(uid){const r=await db.one('DELETE FROM match_queue WHERE user_id=$1 RETURNING game_id',[uid]);return r&&r.game_id?{gameId:r.game_id}:{ok:true}}
 const rowToGame=r=>r&&({...r.state,version:r.version});
 const getGame=async gid=>rowToGame(await db.one('SELECT state,version FROM games WHERE id=$1',[gid]));
 const gamesOf=async uid=>(await db.all('SELECT state,version FROM games WHERE p0=$1 OR p1=$1 ORDER BY updated_ms DESC LIMIT 40',[uid])).map(rowToGame);
@@ -69,7 +94,9 @@ const botStats=async uid=>(agg(await doneRows(`p1='bot' AND p0=$1`,[uid]))[uid]|
 const circleStats=async cid=>agg(await doneRows(`circle_id=$1`,[cid]));
 const listUsers=()=>db.all(`SELECT id,name FROM users WHERE kind='user'`);
 // safety
+const PRESET_EMOJI={'e:poop':'💩','e:laugh':'😂','e:fire':'🔥','e:cry':'😭','e:shock':'😱','e:cool':'😎','e:clap':'👏','e:skull':'💀','e:plunger':'🪠','e:tp':'🧻'};
 const PRESET_TAUNTS={plop:'Plop plop! 💩',flush:'Get flushed! 🚽',clog:'You clogged it 🪠',tp:'Out of TP? 🧻',duck:'Quack quack, loser 🦆',gg:'Good game! 🤝',rematch:'Rematch? 🔁',lucky:'Lucky wipe 😤',stink:'Something stinks… your moves 😷',throne:'Bow to the throne 👑'};
+const presetText=k=>PRESET_TAUNTS[k]||PRESET_EMOJI[k]||null;
 const isBlocked=async(a,b)=>!!(await db.one('SELECT 1 AS x FROM blocks WHERE (blocker_id=$1 AND blocked_id=$2) OR (blocker_id=$2 AND blocked_id=$1)',[a,b]));
 const block=(a,b)=>db.q('INSERT INTO blocks(blocker_id,blocked_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[a,b]);
 const unblock=(a,b)=>db.q('DELETE FROM blocks WHERE blocker_id=$1 AND blocked_id=$2',[a,b]);
@@ -83,6 +110,6 @@ const tauntById=id=>db.one('SELECT * FROM taunts WHERE id=$1',[id]);
 const countTaunts=async(gid,uid)=>Number((await db.one('SELECT count(*) AS n FROM taunts WHERE game_id=$1 AND from_id=$2',[gid,uid])).n);
 const report=(r)=>db.one('INSERT INTO reports(reporter_id,reported_id,game_id,taunt_id,reason,message) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[r.reporter,r.reported,r.gameId,r.tauntId,r.reason,r.message||null]);
 const reportById=id=>db.one('SELECT * FROM reports WHERE id=$1',[id]);
-module.exports={openPremium,ensureBot,userByToken,userById,userByAuth,newSession,createGuest,createUser,redeemInvite,createInvites,addPending,takePending,
+module.exports={matchStep,cancelMatch,PRESET_EMOJI,presetText,openPremium,ensureBot,userByToken,userById,userByAuth,newSession,createGuest,createUser,redeemInvite,createInvites,addPending,takePending,
  createCircle,circleByCode,circleById,joinCircle,leaveCircle,members,isMember,circlesOf,insertGame,getGame,gamesOf,mutateGame,namesFor,
  globalStats,userStats,botStats,circleStats,listUsers,PRESET_TAUNTS,isBlocked,block,unblock,addTaunt,tauntsFor,countTaunts,report,reportById,tauntById,sweepTaunts,clearTaunts,TYPES};

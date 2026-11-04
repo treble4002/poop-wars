@@ -9,7 +9,7 @@ async function init(){
   for(const st of sql.split(';').map(s=>s.trim()).filter(Boolean))await pool.query(st);
   // On real Postgres (e.g. Supabase) turn on row-level security with no policies, so the public REST API
   // (anon/publishable key) can't read or write game tables. The server connects as the owner and bypasses RLS.
-  if(mode==='postgres')for(const t of['users','circles','circle_members','games','moves','invite_codes','pending_signups','taunts','blocks','reports'])
+  if(mode==='postgres')for(const t of['users','circles','circle_members','games','moves','invite_codes','pending_signups','taunts','blocks','reports','match_queue'])
     await pool.query(`alter table ${t} enable row level security`);
   return mode}
 const q=(text,params)=>pool.query(text,params);

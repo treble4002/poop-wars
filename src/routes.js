@@ -7,16 +7,18 @@ const fail=(s,m)=>[s,{error:m}];
 const rows=(list,type,statsOf)=>list.map(u=>{const st=statsOf[u.id]||{stats:{},best:{}},s=st.stats[type]||{w:0,l:0,d:0},r={id:u.id,name:u.name,...s};
  if(type==='follow')r.best=st.best.follow||null;return r}).sort((a,b)=>b.w-a.w||a.l-b.l||a.name.localeCompare(b.name));
 async function gameView(g,uid){const o=E.view(g,uid,await S.namesFor(g.players));
- if(!o.vsBot)o.taunts=(await S.tauntsFor(g.id)).map(t=>({id:t.id,from:t.from_id,key:t.taunt_key,text:t.body!=null?t.body:S.PRESET_TAUNTS[t.taunt_key]}));return o}
+ if(!o.vsBot)o.taunts=(await S.tauntsFor(g.id)).map(t=>({id:t.id,from:t.from_id,key:t.taunt_key,text:t.body!=null?t.body:S.presetText(t.taunt_key)}));
+ o.random=!!g.random;o.freeText=!!g.circleId&&!g.random;return o}
 // Signup gate: the player must tick "I certify I am 13 or older and agree to the Poop Wars rules". Checked here on the server.
 const RULES_TEXT='I certify I am 13 or older and agree to the Poop Wars rules.';
 async function profileChecks(b){if(b.acceptRules!==true)return{err:fail(400,'Please confirm you are 13 or older and agree to the rules.')};
  const name=String(b.name||'').trim().slice(0,20);if(!name)return{err:fail(400,'Name required')};
  const inviteCode=b.inviteCode?String(b.inviteCode).toUpperCase().trim():null;return{name,inviteCode}}
+const quickGame=(type,players)=>E.newGame({id:id(),type,circleId:null,players,created:Date.now(),diff:null,random:true},{},false);
 const F=require('./filter');const TALK_MAX=60,TALK_GAP_MS=Number(process.env.TALK_GAP_MS||3000),lastTalk=new Map();
 const P={premium:true},PUB={public:true},ANY={};   // route flags
 const routes={
- 'GET /api/config':[PUB,async()=>[200,{auth:A.supabaseEnabled()?'email-otp':'dev-name',taunts:S.PRESET_TAUNTS,minAge:13,rulesText:RULES_TEXT,contact:process.env.CONTACT_EMAIL||null,openPremium:S.openPremium()}]],
+ 'GET /api/config':[PUB,async()=>[200,{auth:A.supabaseEnabled()?'email-otp':'dev-name',taunts:S.PRESET_TAUNTS,emoji:S.PRESET_EMOJI,quickMatch:true,minAge:13,rulesText:RULES_TEXT,contact:process.env.CONTACT_EMAIL||null,openPremium:S.openPremium()}]],
  // Free tier: play vs Plunger Pete with no account and no saved scores.
  'POST /api/guest':[PUB,async()=>[200,await S.createGuest()]],
  // Supabase email code flow
@@ -51,10 +53,15 @@ const routes={
  'GET /api/leaderboard':[PUB,async({q})=>{const t=TYPES.includes(q.type)?q.type:'all',st=await S.globalStats();
   return[200,rows(await S.listUsers(),t,st).filter(x=>x.w+x.l+x.d).slice(0,50)]}],
  'GET /api/taunts':[PUB,async()=>[200,S.PRESET_TAUNTS]],
- 'POST /api/taunt':[P,async({b,u})=>{const g=await S.getGame(String(b.gameId||''));if(!g||!g.players.includes(u.id))return fail(404,'Not found');
+ // Chat rules: quick-match (random) games allow only preset taunts + preset emoji (any signed-in user).
+ // Free text (60 chars, filtered) only in circle games, where both players must still share that circle (premium).
+ 'POST /api/taunt':[ANY,async({b,u})=>{const g=await S.getGame(String(b.gameId||''));if(!g||!g.players.includes(u.id))return fail(404,'Not found');
+  if(!g.random&&!isPremium(u))return fail(402,'Trash talk is a premium feature');
   if(g.status==='done')return fail(400,'Game is over');
   let key=null,body=null;
-  if(b.key!=null){if(!S.PRESET_TAUNTS[b.key])return fail(400,'Unknown taunt');key=b.key}
+  if(b.key!=null){if(!S.presetText(b.key))return fail(400,'Unknown taunt');key=b.key}
+  else if(g.random)return fail(400,'Quick match chat is preset taunts and emoji only');
+  else if(!g.circleId||!(await S.isMember(g.circleId,g.players[0])&&await S.isMember(g.circleId,g.players[1])))return fail(400,'Free-text trash talk is only for games with people in your circle');
   else{body=String(b.text||'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim();if(!body)return fail(400,'Say something');
    if([...body].length>TALK_MAX)return fail(400,`Keep it to ${TALK_MAX} characters`);
    const f=F.check(body);if(!f.ok)return fail(400,'Not allowed. Keep it friendly 🧼');body=f.text}
@@ -63,15 +70,20 @@ const routes={
   const now=Date.now(),last=lastTalk.get(u.id)||0;if(now-last<TALK_GAP_MS)return fail(429,'Slow down! One message every 3 seconds');
   if(await S.countTaunts(g.id,u.id)>=20)return fail(429,'That is enough trash talk for one game');
   lastTalk.set(u.id,now);if(lastTalk.size>5000)for(const[k,t]of lastTalk)if(now-t>TALK_GAP_MS)lastTalk.delete(k);
-  const r=await S.addTaunt(g.id,u.id,to,key,body);return[200,{id:r.id,text:body!=null?body:S.PRESET_TAUNTS[key]}]}],
+  const r=await S.addTaunt(g.id,u.id,to,key,body);return[200,{id:r.id,text:body!=null?body:S.presetText(key)}]}],
  // ---- safety (any account) ----
  'POST /api/report':[ANY,async({b,u})=>{const who=String(b.userId||'');if(!who||who===u.id||!await S.userById(who))return fail(400,'Bad report');
   const reason=['mean','spam','inappropriate','other'].includes(b.reason)?b.reason:'other';
   const tid=Number.isInteger(b.tauntId)?b.tauntId:null;let message=null;
-  if(tid!=null){const t=await S.tauntById(tid);if(t&&t.from_id===who&&t.to_id===u.id)message=t.body!=null?t.body:S.PRESET_TAUNTS[t.taunt_key]||t.taunt_key}
+  if(tid!=null){const t=await S.tauntById(tid);if(t&&t.from_id===who&&t.to_id===u.id)message=t.body!=null?t.body:S.presetText(t.taunt_key)||t.taunt_key}
   const r=await S.report({reporter:u.id,reported:who,gameId:b.gameId||null,tauntId:tid,reason,message});return[200,{id:r.id}]}],
  'POST /api/block':[ANY,async({b,u})=>{const who=String(b.userId||'');if(!who||who===u.id||who===BOT||!await S.userById(who))return fail(400,'Bad block');await S.block(u.id,who);return[200,{ok:true}]}],
  'POST /api/unblock':[ANY,async({b,u})=>{await S.unblock(u.id,String(b.userId||''));return[200,{ok:true}]}],
+ // ---- quick match: any signed-in account (not guests). Not premium-gated; see README. ----
+ 'POST /api/match/join':[ANY,async({b,u})=>{if(u.kind!=='user')return fail(403,'Make an account to play strangers');if(!TYPES.includes(b.type))return fail(400,'Bad game type');
+  return[200,await S.matchStep(u.id,b.type,quickGame,{join:true})]}],
+ 'GET /api/match/poll':[ANY,async({u})=>[200,await S.matchStep(u.id,null,quickGame)]],
+ 'POST /api/match/cancel':[ANY,async({u})=>[200,await S.cancelMatch(u.id)]],
  // ---- games ----
  'POST /api/challenge':[ANY,async({b,u})=>{if(!TYPES.includes(b.type))return fail(400,'Bad game type');const vsBot=b.opponentId===BOT;let cid=null;
   if(!vsBot){if(!isPremium(u))return fail(402,'Challenging friends is a premium feature');

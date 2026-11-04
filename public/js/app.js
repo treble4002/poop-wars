@@ -21,9 +21,9 @@ const G={ttt:{n:'Tic-Tac-Toilet',e:'#️⃣',c:'#8e5b34',d:'3 in a row'},c4:{n:'
  dots:{n:'Stall Wars',e:'🚪',c:'#b0643a',d:'Claim the most stalls'},sink:{n:'Sink the Stink',e:'🦆',c:'#3f6fb5',d:'Find their hidden clogs'},hang:{n:'Hang-Ten TP',e:'🧻',c:'#a04f8f',d:'Guess the word'}};
 const SHIPS=[{n:'Mega Clog',e:'💩',s:4},{n:'Rubber Duck',e:'🦆',s:3},{n:'Plunger',e:'🪠',s:3},{n:'TP Roll',e:'🧻',s:2}];
 const MK=['🧻','💩'];const fb=b=>`${b.len} long · ${(b.ms/1000).toFixed(1)}s`;const rec=s=>(s?`${s.w}W ${s.l}L ${s.d}D`:'0W 0L 0D')+(s&&s.best?` <small>· best ${fb(s.best)}</small>`:'');
-async function go(v,a,b){clearInterval(poll);if(v!=='game')CUR=null;scrollTo(0,0);try{
+async function go(v,a,b){clearInterval(poll);if(v!=='game')CUR=null;if(QM&&v!=='quick')qmLeave();scrollTo(0,0);try{
  if(!T)return signup();CFG=CFG||await api('config');me=await api('me');document.getElementById('nav').style.display='flex';
- if(v==='circle')return circle(a,b);if(v==='game')return game(a);if(v==='lb')return lb(a);if(v==='pick')return pick(a);if(v==='games')return games();home()}catch(e){if(/Sign up/.test(e.message)){T=null;localStorage.removeItem('pwToken');signup()}else err(e)}}
+ if(v==='circle')return circle(a,b);if(v==='game')return game(a);if(v==='lb')return lb(a);if(v==='pick')return pick(a);if(v==='games')return games();if(v==='quick')return quick(a);home()}catch(e){if(/Sign up/.test(e.message)){T=null;localStorage.removeItem('pwToken');signup()}else err(e)}}
 let CFG=null,TICKET=null;
 // Deep links: /play?invite=CODE prefills the invite field; /play?join=CODE prefills circle join.
 const QS=new URLSearchParams(location.search),INVITE=(QS.get('invite')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8),JOIN=(QS.get('join')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
@@ -56,10 +56,11 @@ async function home(){const gs=await api('games'),turns=gs.filter(g=>g.myTurn).l
  <div class=card><input id=cn placeholder="New circle name (e.g. The Throne Room)"><button onclick="mk()">Create circle</button><hr><input id=cc placeholder="Invite code" maxlength=6 style="text-transform:uppercase"><button class=alt onclick="jn()">Join circle</button></div>`}${me.pilot?'<small class=muted>🧪 Pilot tester: lifetime premium</small>':''}`;
  poll=setInterval(async()=>{const g2=await api('games',null,{retries:2}).catch(()=>null);if(g2&&g2.filter(g=>g.myTurn).length!==turns)home()},6000)}
 async function games(){const gs=await api('games');
- $.innerHTML=`<h2>🎮 Your games</h2>${gs.map(g=>`<div class="card row" onclick="go('game','${g.id}')"><span>${G[g.type].e} ${G[g.type].n}<br><small>vs ${esc(g.names[1-g.me])}${g.vsBot?' ('+g.diff+')':''}</small></span><b>${g.status==='done'?(g.winner===me.id?'🏆 Won':g.winner==='draw'?'🤝 Draw':'💀 Lost'):g.myTurn?'👉 Your turn':'⏳ Waiting'}</b></div>`).join('')||'<div class=card>No games yet. Pick one in the Arcade!</div>'}`;
+ $.innerHTML=`<h2>🎮 Your games</h2>${gs.map(g=>`<div class="card row" onclick="go('game','${g.id}')"><span>${G[g.type].e} ${G[g.type].n}<br><small>${g.random?'🎲 ':''}vs ${esc(g.names[1-g.me])}${g.vsBot?' ('+g.diff+')':''}</small></span><b>${g.status==='done'?(g.winner===me.id?'🏆 Won':g.winner==='draw'?'🤝 Draw':'💀 Lost'):g.myTurn?'👉 Your turn':'⏳ Waiting'}</b></div>`).join('')||'<div class=card>No games yet. Pick one in the Arcade!</div>'}`;
  poll=setInterval(async()=>{const g2=await api('games',null,{retries:2}).catch(()=>null);if(g2&&JSON.stringify(g2.map(g=>g.updated))!==JSON.stringify(gs.map(g=>g.updated)))games()},5000)}
 function pick(t){const x=G[t];
  $.innerHTML=`<div class="card big" style="background:${x.c};color:#fff"><span style="font-size:50px">${x.e}</span><br><b>${x.n}</b><br><small>${HELP[t]}</small></div>
+ <h2>🎲 Quick match</h2><div class=card>${me.kind==='user'?`<button onclick="go('quick','${t}')">🎲 Find a match</button><br><small>Play a random person. Chat is preset taunts and emoji only. Results count on the global rankings.</small>`:`<small>Make a free account to play random opponents.</small>`}</div>
  <h2>🪠 Solo vs Plunger Pete</h2><div class=card><button onclick="ch(null,'bot','${t}','easy')">😌 Easy</button><button onclick="ch(null,'bot','${t}','hard')">😈 Hard</button><br><small>Games vs Plunger Pete go on your separate "vs Bot" record, not the rankings.</small></div>
  ${!me.premium?'<div class=card>⚔️ Challenging friends is a 👑 premium feature.</div>':`<h2>⚔️ Challenge someone</h2>${t==='hang'?`<div class=card><input id=sw maxlength=12 placeholder="Optional: secret word for them (3–12 letters)"><small>Leave blank and we'll pick a random one.</small></div>`:''}
  ${me.circleList.map(c=>`<div class=card><b>${esc(c.name)}</b>${c.members.map(m=>`<div class=row><span>${esc(m.name)}</span><button class=sm onclick="ch('${c.id}','${m.id}','${t}')">Challenge</button></div>`).join('')||'<br><small>Nobody else here yet. Share code <b>'+c.code+'</b></small>'}</div>`).join('')||'<div class=card>Join or create a circle on the Arcade screen to challenge friends.</div>'}`}`}
@@ -82,19 +83,33 @@ async function ch(c,o,t,d){try{const w=window.sw&&sw.value.trim();const g=await 
 async function mv(id,b){try{await api('move',{gameId:id,...b});game(id)}catch(e){err(e)}}
 async function game(id){CUR=id;const g=await api('game?id='+id),opp=esc(g.names[1-g.me]),x=G[g.type];
  let res=g.status!=='done'?'':g.winner===me.id?'🏆 You won! Flush with pride.':g.winner==='draw'?'🤝 Draw. Nobody flushed.':'💀 You lost. Wipe away the tears.';
- let h=`<div class="card big" style="background:${x.c};color:#fff"><b>${x.e} ${x.n}</b><br>You ${MK[g.me]} vs ${opp} ${MK[1-g.me]}${g.vsBot?' · '+g.diff:''}</div>`;
+ let h=`<div class="card big" style="background:${x.c};color:#fff"><b>${x.e} ${x.n}</b><br>You ${MK[g.me]} vs ${opp} ${MK[1-g.me]}${g.vsBot?' · '+g.diff:''}${g.random?'<br><small>🎲 Quick match</small>':''}</div>`;
  const status=res||(g.myTurn?'👉 Your turn!':'⏳ Waiting for '+opp+'… (auto-refreshing)');
  h+=(R[g.type]||(()=>''))(g,status,opp);
- if(!g.vsBot&&me.premium)h+=arena(g);
- if(g.status==='done')h+=`<button onclick="ch(${g.circleId?`'${g.circleId}'`:null},'${g.players[1-g.me]}','${g.type}','${g.diff||''}')">🔁 Rematch</button> <button class=alt onclick="go('home')">🕹️ Arcade</button>`;
+ if(!g.vsBot&&(g.random||me.premium))h+=arena(g);
+ if(g.status==='done')h+=g.random?`<button onclick="go('quick','${g.type}')">🎲 New quick match</button> <button class=alt onclick="go('home')">🕹️ Arcade</button>`:`<button onclick="ch(${g.circleId?`'${g.circleId}'`:null},'${g.players[1-g.me]}','${g.type}','${g.diff||''}')">🔁 Rematch</button> <button class=alt onclick="go('home')">🕹️ Arcade</button>`;
  $.innerHTML=h;if(g.status==='active')poll=setInterval(async()=>{const g2=await api('game?id='+id,null,{retries:2}).catch(()=>null);if(g2&&g2.updated!==g.updated)game(id)},3000)}
 
 // Trash talk arena: preset taunts + short free text (60 chars, filtered on the server), with report + block. Wiped when the game ends.
-function arena(g){const opp=g.players[1-g.me],T2=CFG&&CFG.taunts||{};
- return`<h2>🗯️ Trash talk</h2>${g.status==='done'?'<div class=card>Game over. Trash talk is wiped. GG! 🤝</div>':`<form class="card row" onsubmit="event.preventDefault();say('${g.id}',this.t)"><input name=t maxlength=60 placeholder="Say something (60 max, keep it clean)" style="flex:1;min-width:0" autocomplete=off><button class=sm>Send</button></form>`}<div class="card taunts">${Object.entries(T2).map(([k,t])=>`<button class="alt" onclick="taunt('${g.id}','${k}')">${esc(t)}</button>`).join('')}</div>
+function arena(g){const opp=g.players[1-g.me],T2=CFG&&CFG.taunts||{},EM=CFG&&CFG.emoji||{};
+ return`<h2>🗯️ Trash talk</h2>${g.status==='done'?'<div class=card>Game over. Trash talk is wiped. GG! 🤝</div>':`${g.freeText?'':`<small class=muted>${g.random?'🎲 Quick match: preset taunts and emoji only.':'Preset taunts only.'}</small>`}<div class="card emoji">${Object.entries(EM).map(([k,e])=>`<button class="alt sm" aria-label="send ${e}" onclick="taunt('${g.id}','${k}')">${e}</button>`).join('')}</div>`+(!g.freeText?'':`<form class="card row" onsubmit="event.preventDefault();say('${g.id}',this.t)"><input name=t maxlength=60 placeholder="Say something (60 max, keep it clean)" style="flex:1;min-width:0" autocomplete=off><button class=sm>Send</button></form>`)}${g.status==='done'?'':`<div class="card taunts">${Object.entries(T2).map(([k,t])=>`<button class="alt" onclick="taunt('${g.id}','${k}')">${esc(t)}</button>`).join('')}</div>`}
  <div class=card>${(g.taunts||[]).map(t=>`<div class=row><span>${t.from===me.id?'You':esc(g.names[1-g.me])}: ${esc(t.text)}</span>${t.from!==me.id?`<button class="sm alt" onclick="report('${opp}','${g.id}',${t.id})">🚩</button>`:''}</div>`).join('')||'<small class=muted>No trash talk yet.</small>'}
  <br><button class="sm alt" onclick="report('${opp}','${g.id}')">🚩 Report player</button><button class="sm alt" onclick="blockP('${opp}')">⛔ Block</button></div>`}
 async function say(id,el){const t=el.value.trim();if(!t)return;try{await api('taunt',{gameId:id,text:t});el.value='';game(id)}catch(e){err(e)}}
 async function taunt(id,k){try{await api('taunt',{gameId:id,key:k});game(id)}catch(e){err(e)}}
 async function report(u,g,t){if(!confirm('Report this player to the grown-ups who run Poop Wars?'))return;try{await api('report',{userId:u,gameId:g,tauntId:t,reason:'mean'});alert('Thanks. We will take a look.')}catch(e){err(e)}}
 async function blockP(u){if(!confirm('Block this player? They cannot challenge or taunt you.'))return;try{await api('block',{userId:u});go('home')}catch(e){err(e)}}
+
+// ---- Quick match: join the queue, poll every ~1.5s, cancel on leave. After 30s offer Plunger Pete (you stay queued meanwhile).
+let QM=null;
+async function quick(t){const x=G[t];QM={t,start:Date.now()};
+ $.innerHTML=`<div class="card big searching" style="background:${x.c};color:#fff"><div class=spin>🚽</div><br><b>Searching…</b><br>${x.e} ${x.n}<br><small>Looking for a random opponent · <span id=qs>0s</span></small></div>
+ <div class=card id=qbot style="display:none"><b>Nobody yet 😴</b><br><small>Play Plunger Pete now (that leaves the queue), or keep waiting here. You stay in line.</small><br><button onclick="qmBot('${t}')">🪠 Play Plunger Pete instead</button></div>
+ <button class=alt onclick="go('pick','${t}')">✖ Cancel</button><br><small class=muted>Random players only see your display name. Chat is preset taunts and emoji.</small>`;
+ const done=r=>{if(r&&r.gameId){QM=null;clearInterval(poll);toast('Match found! 🎉',1500);go('game',r.gameId);return true}};
+ try{if(done(await api('match/join',{type:t})))return}catch(e){QM=null;return err(e)}
+ let busy=false;poll=setInterval(async()=>{if(!QM||busy)return;const s=Math.round((Date.now()-QM.start)/1000);const qs=document.getElementById('qs');if(qs)qs.textContent=s+'s';
+  if(s>=30){const qb=document.getElementById('qbot');if(qb)qb.style.display='block'}
+  busy=true;try{let r=await api('match/poll',null,{retries:2});if(r.gone&&QM)r=await api('match/join',{type:t});if(QM)done(r)}catch(e){}finally{busy=false}},1500)}
+function qmLeave(){QM=null;api('match/cancel',{}).then(r=>{if(r&&r.gameId)toast('You were matched just as you left. Find it in 🎮 Games.',4000)}).catch(()=>{})}
+async function qmBot(t){QM=null;clearInterval(poll);await api('match/cancel',{}).catch(()=>null);ch(null,'bot',t,'easy')}
