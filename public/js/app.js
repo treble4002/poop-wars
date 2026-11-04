@@ -73,11 +73,12 @@ async function game(id){const g=await api('game?id='+id),opp=esc(g.names[1-g.me]
  if(g.status==='done')h+=`<button onclick="ch(${g.circleId?`'${g.circleId}'`:null},'${g.players[1-g.me]}','${g.type}','${g.diff||''}')">🔁 Rematch</button> <button class=alt onclick="go('home')">🕹️ Arcade</button>`;
  $.innerHTML=h;if(g.status==='active')poll=setInterval(async()=>{const g2=await api('game?id='+id);if(g2.updated!==g.updated)game(id)},3000)}
 
-// Trash talk arena: preset taunts only, with report + block.
+// Trash talk arena: preset taunts + short free text (60 chars, filtered on the server), with report + block. Wiped when the game ends.
 function arena(g){const opp=g.players[1-g.me],T2=CFG&&CFG.taunts||{};
- return`<h2>🗯️ Trash talk</h2><div class="card taunts">${Object.entries(T2).map(([k,t])=>`<button class="alt" onclick="taunt('${g.id}','${k}')">${esc(t)}</button>`).join('')}</div>
+ return`<h2>🗯️ Trash talk</h2>${g.status==='done'?'<div class=card>Game over. Trash talk is wiped. GG! 🤝</div>':`<form class="card row" onsubmit="event.preventDefault();say('${g.id}',this.t)"><input name=t maxlength=60 placeholder="Say something (60 max, keep it clean)" style="flex:1;min-width:0" autocomplete=off><button class=sm>Send</button></form>`}<div class="card taunts">${Object.entries(T2).map(([k,t])=>`<button class="alt" onclick="taunt('${g.id}','${k}')">${esc(t)}</button>`).join('')}</div>
  <div class=card>${(g.taunts||[]).map(t=>`<div class=row><span>${t.from===me.id?'You':esc(g.names[1-g.me])}: ${esc(t.text)}</span>${t.from!==me.id?`<button class="sm alt" onclick="report('${opp}','${g.id}',${t.id})">🚩</button>`:''}</div>`).join('')||'<small class=muted>No trash talk yet.</small>'}
  <br><button class="sm alt" onclick="report('${opp}','${g.id}')">🚩 Report player</button><button class="sm alt" onclick="blockP('${opp}')">⛔ Block</button></div>`}
+async function say(id,el){const t=el.value.trim();if(!t)return;try{await api('taunt',{gameId:id,text:t});el.value='';game(id)}catch(e){err(e)}}
 async function taunt(id,k){try{await api('taunt',{gameId:id,key:k});game(id)}catch(e){err(e)}}
 async function report(u,g,t){if(!confirm('Report this player to the grown-ups who run Poop Wars?'))return;try{await api('report',{userId:u,gameId:g,tauntId:t,reason:'mean'});alert('Thanks. We will take a look.')}catch(e){err(e)}}
 async function blockP(u){if(!confirm('Block this player? They cannot challenge or taunt you.'))return;try{await api('block',{userId:u});go('home')}catch(e){err(e)}}

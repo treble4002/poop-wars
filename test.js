@@ -87,9 +87,10 @@ async function playOut(tok,g){g=await api('game?id='+g.id,tok);for(let n=0;n<200
  g=await ch('follow');await mv(A.token,g,{start:true});await mv(Bo.token,g,{start:true});await new Promise(r=>setTimeout(r,600));
  await Promise.all([mv(A.token,g,{len:2,ms:500}),mv(Bo.token,g,{len:1,ms:300})]);g=await api('game?id='+g.id,A.token);
  ok(g.status==='done'&&g.res[A.id]&&g.res[Bo.id]&&g.winner===A.id,'Concurrency: simultaneous Follow submits both saved (no lost update)');
- // ---- trash talk (preset only), report, block ----
+ // ---- trash talk (presets + 60-char free text), report, block ----
+ g=await ch('ttt');
  const tl=await api('taunts');ok(tl.plop,'Preset taunt list served');
- ok((await api('taunt',A.token,{gameId:g.id,key:'you stink lol'})).error,'Free-typed taunt rejected');
+ ok((await api('taunt',A.token,{gameId:g.id,key:'you stink lol'})).status===400,'Unknown preset key rejected');
  const tt=await api('taunt',A.token,{gameId:g.id,key:'plop'});const gB=await api('game?id='+g.id,Bo.token);ok(tt.id&&gB.taunts[0].text===tl.plop,'Preset taunt delivered');
  ok((await api('taunt',F.token,{gameId:g.id,key:'plop'})).status===402,'Arena is premium-only');
  ok((await api('report',Bo.token,{userId:A.id,gameId:g.id,tauntId:tt.id,reason:'mean'})).id,'Report a taunt');

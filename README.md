@@ -38,7 +38,7 @@ Supabase setup: Auth → Providers → Email on; edit the "Magic Link" email tem
   `DATABASE_URL=... node scripts/make-invites.js 20 pilot "family"` (kinds: `pilot` or `premium`).
 
 ## Trash talk / safety
-Preset taunts only (`GET /api/taunts`); `POST /api/taunt {gameId,key}`; `POST /api/report {userId,gameId?,tauntId?,reason}`; `POST /api/block` and `/api/unblock {userId}`. Blocking stops taunts and challenges both ways. No ad or analytics SDKs.
+Premium-only. Preset taunts (`GET /api/taunts`) or free text: `POST /api/taunt {gameId,key}` or `{gameId,text}`. Free text is capped at 60 characters on the server and passes `src/filter.js`, which rejects slurs, hate, sexual and self-harm terms and masks common swears. Rate limit: 1 message per 3 s per user (`TALK_GAP_MS`), max 20 per game. Taunts are per-game: they are deleted when the game finishes, and a sweep every 15 min deletes any older than 24 h. A report copies the reported message into `reports.message`, so it survives the wipe for review. `POST /api/report {userId,gameId?,tauntId?,reason}`; `POST /api/block` and `/api/unblock {userId}`. Blocking stops taunts and challenges both ways. No ad or analytics SDKs.
 
 ## Not done yet
 - **Push notifications / turn reminders**: out of scope for this pass. The `moves` table is where a "Bob made his move" hook would go.

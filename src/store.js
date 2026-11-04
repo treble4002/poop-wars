@@ -53,7 +53,7 @@ async function mutateGame(gid,uid,body,fn){
   const ok=await db.tx(async c=>{const r=await c.query('UPDATE games SET state=$1,status=$2,winner=$3,version=version+1,updated_ms=$4 WHERE id=$5 AND version=$6',
     [JSON.stringify(g),g.status,g.winner,g.updated,gid,v]);
    if(r.rowCount!==1)return false;await c.query('INSERT INTO moves(game_id,user_id,seq,body) VALUES($1,$2,$3,$4)',[gid,uid,v+1,JSON.stringify(body)]);return true});
-  if(ok)return{game:g};await new Promise(r=>setTimeout(r,5+Math.random()*20))}
+  if(ok){if(g.status==='done')await clearTaunts(gid);return{game:g}}await new Promise(r=>setTimeout(r,5+Math.random()*20))}
  return{error:'Busy, try again',status:409}}
 const namesFor=async ids=>{const rs=await db.all('SELECT id,name FROM users WHERE id=$1 OR id=$2',ids);return ids.map(i=>rs.find(r=>r.id===i)?.name)};
 // stats are derived from finished games (no counters to race on)
@@ -73,10 +73,16 @@ const PRESET_TAUNTS={plop:'Plop plop! 💩',flush:'Get flushed! 🚽',clog:'You 
 const isBlocked=async(a,b)=>!!(await db.one('SELECT 1 AS x FROM blocks WHERE (blocker_id=$1 AND blocked_id=$2) OR (blocker_id=$2 AND blocked_id=$1)',[a,b]));
 const block=(a,b)=>db.q('INSERT INTO blocks(blocker_id,blocked_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[a,b]);
 const unblock=(a,b)=>db.q('DELETE FROM blocks WHERE blocker_id=$1 AND blocked_id=$2',[a,b]);
-const addTaunt=(gid,from,to,key)=>db.one('INSERT INTO taunts(game_id,from_id,to_id,taunt_key) VALUES($1,$2,$3,$4) RETURNING id',[gid,from,to,key]);
-const tauntsFor=gid=>db.all('SELECT id,from_id,taunt_key,created_at FROM taunts WHERE game_id=$1 ORDER BY id DESC LIMIT 20',[gid]);
+// Taunts are ephemeral: wiped when the game finishes, and anything older than 24h is swept.
+const DAY_MS=24*3600*1000;
+const sweepTaunts=()=>db.q("DELETE FROM taunts WHERE created_at < $1 OR game_id IN (SELECT id FROM games WHERE status='done')",[new Date(Date.now()-DAY_MS)]);
+const clearTaunts=gid=>db.q('DELETE FROM taunts WHERE game_id=$1',[gid]);
+const addTaunt=(gid,from,to,key,body)=>db.one('INSERT INTO taunts(game_id,from_id,to_id,taunt_key,body) VALUES($1,$2,$3,$4,$5) RETURNING id',[gid,from,to,key||null,body||null]);
+const tauntsFor=gid=>db.all('SELECT id,from_id,taunt_key,body,created_at FROM taunts WHERE game_id=$1 AND created_at > $2 ORDER BY id DESC LIMIT 20',[gid,new Date(Date.now()-DAY_MS)]);
+const tauntById=id=>db.one('SELECT * FROM taunts WHERE id=$1',[id]);
 const countTaunts=async(gid,uid)=>Number((await db.one('SELECT count(*) AS n FROM taunts WHERE game_id=$1 AND from_id=$2',[gid,uid])).n);
-const report=(r)=>db.one('INSERT INTO reports(reporter_id,reported_id,game_id,taunt_id,reason) VALUES($1,$2,$3,$4,$5) RETURNING id',[r.reporter,r.reported,r.gameId,r.tauntId,r.reason]);
+const report=(r)=>db.one('INSERT INTO reports(reporter_id,reported_id,game_id,taunt_id,reason,message) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[r.reporter,r.reported,r.gameId,r.tauntId,r.reason,r.message||null]);
+const reportById=id=>db.one('SELECT * FROM reports WHERE id=$1',[id]);
 module.exports={openPremium,ensureBot,userByToken,userById,userByAuth,newSession,createGuest,createUser,redeemInvite,createInvites,addPending,takePending,
  createCircle,circleByCode,circleById,joinCircle,leaveCircle,members,isMember,circlesOf,insertGame,getGame,gamesOf,mutateGame,namesFor,
- globalStats,userStats,botStats,circleStats,listUsers,PRESET_TAUNTS,isBlocked,block,unblock,addTaunt,tauntsFor,countTaunts,report,TYPES};
+ globalStats,userStats,botStats,circleStats,listUsers,PRESET_TAUNTS,isBlocked,block,unblock,addTaunt,tauntsFor,countTaunts,report,reportById,tauntById,sweepTaunts,clearTaunts,TYPES};

@@ -3,5 +3,6 @@
 const db=require('./src/db'),S=require('./src/store'),{create}=require('./src/http');
 const PORT=process.env.PORT||3737;
 (async()=>{const mode=await db.init();await S.ensureBot();
+ {const sw=()=>S.sweepTaunts().catch(e=>console.error('taunt sweep',e.message));sw();setInterval(sw,15*60*1000).unref()}
  create().listen(PORT,()=>console.log(`🚽 Poop Wars on http://localhost:${PORT} (storage: ${mode}, auth: ${require('./src/auth').supabaseEnabled()?'supabase email codes':'dev name login'})`))})()
  .catch(e=>{console.error(e);process.exit(1)});

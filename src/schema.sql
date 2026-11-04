@@ -91,3 +91,8 @@ CREATE TABLE IF NOT EXISTS reports (
 
 -- added: where premium came from (invite, invite_pilot, open_pilot)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS premium_source text;
+
+-- added: free-text trash talk (max 60 chars), and reports keep a copy of the reported message
+ALTER TABLE taunts ADD COLUMN IF NOT EXISTS body text;
+ALTER TABLE taunts ALTER COLUMN taunt_key DROP NOT NULL;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS message text;
