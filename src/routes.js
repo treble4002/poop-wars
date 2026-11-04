@@ -23,7 +23,9 @@ const routes={
  'POST /api/auth/start':[PUB,async({b})=>{if(!A.supabaseEnabled())return fail(501,'Email login not configured on this server (dev mode uses /api/signup)');
   const email=String(b.email||'').trim().toLowerCase();if(!A.validEmail(email))return fail(400,'Enter a valid email');await A.sendCode(email);return[200,{sent:true}]}],
  'POST /api/auth/verify':[PUB,async({b})=>{if(!A.supabaseEnabled())return fail(501,'Email login not configured');
-  const email=String(b.email||'').trim().toLowerCase(),v=await A.verifyCode(email,String(b.code||'').trim());
+  const email=String(b.email||'').trim().toLowerCase(),code=String(b.code||'').replace(/\s+/g,'');
+  if(!A.validEmail(email))return fail(400,'Enter a valid email');if(!/^\d{6,8}$/.test(code))return fail(400,'Enter the 6 to 8 digit code from your email');
+  const v=await A.verifyCode(email,code);
   const u=await S.userByAuth(v.authId);if(u)return[200,{id:u.id,token:await S.newSession(u.id)}];
   return[200,{needsProfile:true,ticket:await S.addPending(v.authId,v.email)}]}],
  // Create the account. Requires acceptRules:true (13+ and rules); the acceptance time is stored.

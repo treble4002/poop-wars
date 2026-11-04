@@ -18,14 +18,18 @@ new MutationObserver(prefill).observe(document.getElementById('app'),{childList:
 async function signup(){CFG=CFG||await api('config');
  const guest=`<div class=card><b>Just want to play?</b><br><small>Play Plunger Pete right now, no account needed. Scores are not saved.</small><br><button class=alt onclick="doGuest()">🪠 Play as guest</button></div>`;
  if(CFG.auth==='email-otp'&&!TICKET){$.innerHTML=`<div class="card big">Head-to-head mini games for your bathroom break.</div><div class=card><label>Your email</label><input id=em type=email autocomplete=email><button onclick="sendCode()">Email me a code</button>
-  ${INVITE?`<small>🎟️ Invite code <b>${INVITE}</b> will be applied after you confirm your email.</small>`:''}<div id=codebox style="display:none"><label>6-digit code</label><input id=oc inputmode=numeric maxlength=6><button onclick="checkCode()">Sign in</button></div></div>${guest}`;return}
+  ${INVITE?`<small>🎟️ Invite code <b>${INVITE}</b> will be applied after you confirm your email.</small>`:''}<div id=codebox style="display:none"><label>Code from your email (6–8 digits)</label><input id=oc inputmode=numeric autocomplete=one-time-code maxlength=8 pattern="[0-9]{6,8}" oninput="codeInput(this)"><button onclick="checkCode()">Sign in</button></div></div>${guest}`;return}
  $.innerHTML=`<div class="card big">Head-to-head mini games for your bathroom break.</div><div class=card>
  <label>Silly name</label><input id=n placeholder="e.g. Sir Plops" maxlength=20>
  <label>Invite code (optional)</label><input id=ic maxlength=8 style="text-transform:uppercase">
  <label style="display:flex;gap:10px;align-items:flex-start;font-weight:600"><input id=ar type=checkbox style="width:24px;height:24px;flex:none;margin-top:2px"><span>I certify I am 13 or older and agree to the <a href="/rules" target="_blank">Poop Wars rules</a>.</span></label>
  <button onclick="doSignup()">Enter the stall 🚪</button></div>${guest}`}
 async function sendCode(){try{await api('auth/start',{email:em.value});codebox.style.display='block'}catch(e){err(e)}}
-async function checkCode(){try{const r=await api('auth/verify',{email:em.value,code:oc.value});if(r.token){T=r.token;localStorage.pwToken=T;return go('home')}TICKET=r.ticket;signup()}catch(e){err(e)}}
+// Auto-submit: right away at 8 digits; at 6-7 digits after a short pause (Supabase may send 6 or 8).
+let codeTimer,codeBusy=false;
+function codeInput(el){const d=el.value.replace(/\D/g,'').slice(0,8);if(el.value!==d)el.value=d;clearTimeout(codeTimer);
+ if(d.length===8)checkCode();else if(d.length>=6)codeTimer=setTimeout(checkCode,1200)}
+async function checkCode(){clearTimeout(codeTimer);const c=oc.value.replace(/\D/g,'');if(!/^\d{6,8}$/.test(c))return alert('Enter the 6 to 8 digit code from your email.');if(codeBusy)return;codeBusy=true;try{const r=await api('auth/verify',{email:em.value,code:c});if(r.token){T=r.token;localStorage.pwToken=T;return go('home')}TICKET=r.ticket;signup()}catch(e){err(e)}finally{codeBusy=false}}
 async function doGuest(){try{const u=await api('guest',{});T=u.token;localStorage.pwToken=T;go('home')}catch(e){err(e)}}
 async function doSignup(){if(!ar.checked)return alert('Tick the box to confirm you are 13 or older and agree to the rules.');try{const u=await api('signup',{name:n.value,acceptRules:ar.checked,inviteCode:ic.value||undefined,ticket:TICKET||undefined});T=u.token;TICKET=null;localStorage.pwToken=T;go('home')}catch(e){err(e)}}
 async function redeem(){try{await api('redeem',{code:rc.value});go('home')}catch(e){err(e)}}
