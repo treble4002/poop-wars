@@ -95,4 +95,11 @@ async function playOut(tok,g){g=await api('game?id='+g.id,tok);for(let n=0;n<200
  ok((await api('report',Bo.token,{userId:A.id,gameId:g.id,tauntId:tt.id,reason:'mean'})).id,'Report a taunt');
  await api('block',Bo.token,{userId:A.id});ok((await api('taunt',A.token,{gameId:g.id,key:'gg'})).status===403&&(await ch('ttt')).status===403,'Block stops taunts and challenges');
  await api('unblock',Bo.token,{userId:A.id});ok(!(await ch('ttt')).error,'Unblock restores challenges');
+ // Pages
+ const R=B.replace(/\/api\/$/,''),pg=async(p,o)=>{const r=await fetch(R+p,{redirect:'manual',...o});return{s:r.status,t:await r.text(),h:r.headers}};
+ { const a=await pg('/');ok(a.s===200&&/Six games/.test(a.t)&&!/<script src/.test(a.t),'Welcome page at /');
+  const b=await pg('/play');ok(b.s===200&&/\/js\/app\.js/.test(b.t),'Game app at /play');
+  ok((await pg('/play/?invite=AB12')).s===200&&(await pg('/play/circle/x')).s===200,'Deep links under /play serve the app');
+  const c=await pg('/index.html');ok(c.s===301&&c.h.get('location')==='/play','Old /index.html redirects to /play');
+  ok((await pg('/js/app.js')).s===200&&(await pg('/css/app.css')).s===200&&(await pg('/nope.js')).s===404,'Assets served, missing 404'); }
  console.log(fails?`\n${fails} FAILED`:'\nALL PASSED');process.exit(fails?1:0)})().catch(e=>{console.error('CRASH',e);process.exit(1)});

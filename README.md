@@ -26,7 +26,8 @@ Supabase setup: Auth → Providers → Email on; edit the "Magic Link" email tem
 - `src/store.js` all queries. Moves use **compare-and-swap on `games.version`** inside a transaction (plus a `moves` row with a unique `(game_id, seq)`); a lost race reloads and retries, so two simultaneous moves can't overwrite each other. Stats and leaderboards are computed from finished games (no shared counters to race on).
 - `src/games/<type>.js` one file per game (rules, bot, per-player view); `src/games/index.js` registry and engine.
 - `src/routes.js` API; `src/http.js` static files, auth and premium checks; `src/auth.js` Supabase OTP and the age check.
-- `public/index.html`, `public/css/app.css`, `public/js/app.js` (API, router, screens, trash talk), `public/js/games/<type>.js` (one renderer per game), `public/js/main.js`.
+- `public/landing.html` is the welcome page at `/`. The game app is `public/play.html`, served at `/play` (and any `/play/...` path). `/index.html` redirects to `/play`. Deep links: `/play?invite=CODE` prefills the invite code; `/play?join=CODE` prefills a circle code.
+- `public/play.html`, `public/css/app.css`, `public/js/app.js` (API, router, screens, trash talk), `public/js/games/<type>.js` (one renderer per game), `public/js/main.js`.
 
 ## Accounts, age gate, premium
 - Signup needs a birthdate. The **server** rejects under-13s (403, nothing stored). Ages 13–17 must give a parent email, saved as `owner_email` (the account owner).

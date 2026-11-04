@@ -11,10 +11,14 @@ async function go(v,a,b){clearInterval(poll);scrollTo(0,0);try{
  if(!T)return signup();CFG=CFG||await api('config');me=await api('me');document.getElementById('nav').style.display='flex';
  if(v==='circle')return circle(a,b);if(v==='game')return game(a);if(v==='lb')return lb(a);if(v==='pick')return pick(a);if(v==='games')return games();home()}catch(e){if(/Sign up/.test(e.message)){T=null;localStorage.removeItem('pwToken');signup()}else err(e)}}
 let CFG=null,TICKET=null;
+// Deep links: /play?invite=CODE prefills the invite field; /play?join=CODE prefills circle join.
+const QS=new URLSearchParams(location.search),INVITE=(QS.get('invite')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8),JOIN=(QS.get('join')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
+function prefill(){if(INVITE){if(window.ic&&!ic.value)ic.value=INVITE;if(window.rc&&!rc.value)rc.value=INVITE}if(JOIN&&window.cc&&!cc.value)cc.value=JOIN}
+new MutationObserver(prefill).observe(document.getElementById('app'),{childList:true});
 async function signup(){CFG=CFG||await api('config');
  const guest=`<div class=card><b>Just want to play?</b><br><small>Play Plunger Bot right now, no account needed. Scores are not saved.</small><br><button class=alt onclick="doGuest()">🪠 Play as guest</button></div>`;
  if(CFG.auth==='email-otp'&&!TICKET){$.innerHTML=`<div class="card big">Head-to-head mini games for your bathroom break.</div><div class=card><label>Your email (or your parent's, if you're under 18)</label><input id=em type=email autocomplete=email><button onclick="sendCode()">Email me a code</button>
-  <div id=codebox style="display:none"><label>6-digit code</label><input id=oc inputmode=numeric maxlength=6><button onclick="checkCode()">Sign in</button></div></div>${guest}`;return}
+  ${INVITE?`<small>🎟️ Invite code <b>${INVITE}</b> will be applied after you confirm your email.</small>`:''}<div id=codebox style="display:none"><label>6-digit code</label><input id=oc inputmode=numeric maxlength=6><button onclick="checkCode()">Sign in</button></div></div>${guest}`;return}
  $.innerHTML=`<div class="card big">Head-to-head mini games for your bathroom break.</div><div class=card>
  <label>Silly name</label><input id=n placeholder="e.g. Sir Plops" maxlength=20>
  <label>Birthdate</label><input id=bd type=date>
@@ -49,7 +53,7 @@ const HELP={ttt:'Get 3 in a row. 🧻 goes first.',c4:'Drop pieces into columns.
 async function mk(){try{const c=await api('circles',{name:cn.value||'My Circle'});go('circle',c.id)}catch(e){err(e)}}
 async function jn(){try{const c=await api('circles/join',{code:cc.value});go('circle',c.id)}catch(e){err(e)}}
 async function circle(id,tab='all'){const c=await api('circle?id='+id),rows=c.boards[tab];
- $.innerHTML=`<div class="card big"><b>${esc(c.name)}</b><br>Invite code: <b style="font-size:28px;letter-spacing:3px">${c.code}</b><br><button class=alt onclick="navigator.clipboard&&navigator.clipboard.writeText('Join my Poop Wars circle! Code: ${c.code} — '+location.origin);this.textContent='Copied!'">📋 Copy invite</button></div>
+ $.innerHTML=`<div class="card big"><b>${esc(c.name)}</b><br>Invite code: <b style="font-size:28px;letter-spacing:3px">${c.code}</b><br><button class=alt onclick="navigator.clipboard&&navigator.clipboard.writeText('Join my Poop Wars circle! Code: ${c.code} — '+location.origin+'/play?join=${c.code}');this.textContent='Copied!'">📋 Copy invite</button></div>
  <h2>👑 Circle leaders</h2><div class=card>${Object.keys(G).map(t=>{const top=c.boards[t][0];return top&&top.w?`<div class=row><span>${G[t].e} ${G[t].n}</span><b>${esc(top.name)} (${top.w}W)</b></div>`:''}).join('')||'<small>No games finished yet.</small>'}</div>
  <h2>🏆 Rankings</h2><div class=tabs>${['all',...Object.keys(G)].map(t=>`<button class="sm ${t===tab?'on':'alt'}" onclick="go('circle','${id}','${t}')">${t==='all'?'Overall':G[t].e+' '+G[t].n}</button>`).join('')}</div>
  <div class=card>${rows.map((m,i)=>`<div class=row><span>${['👑','🥈','🥉'][i]||'🧻'} ${esc(m.name)}${m.id===me.id?' <small>(you)</small>':''}</span><span>${rec(m)}</span></div>`).join('')}</div>
