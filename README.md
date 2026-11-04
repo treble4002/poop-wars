@@ -31,7 +31,7 @@ Supabase setup: Auth → Providers → Email on; edit the "Magic Link" email tem
 - `public/play.html`, `public/css/app.css`, `public/js/app.js` (API, router, screens, trash talk), `public/js/games/<type>.js` (one renderer per game), `public/js/main.js`.
 
 ## Accounts, age gate, premium
-- Signup needs a birthdate. The **server** rejects under-13s (403, nothing stored). Ages 13–17 must give a parent email, saved as `owner_email` (the account owner).
+- Signup needs the checkbox "I certify I am 13 or older and agree to the Poop Wars rules." The **server** rejects signup unless `acceptRules === true` and stores `users.accepted_rules_at`. We don't collect a birthdate or parent email; the old `birthdate`/`owner_email` columns are no longer written. `/rules` (also `/privacy`) is the rules and privacy page. Set `CONTACT_EMAIL` to show an account-deletion email address there.
 - Free tier: `POST /api/guest` (no account) or a free account can play Plunger Pete. No saved scores, circles, trophies or arena.
 - Premium (`users.premium`) or pilot (`users.pilot`, lifetime full premium) is required on: circles (create/join/view/leave), friend challenges, `/api/scores`, `/api/trophies`, `/api/taunt`.
 - Flags are set by a **single-use invite code** at signup (or later via `POST /api/redeem`). Make codes:
@@ -43,7 +43,6 @@ Premium-only. Preset taunts (`GET /api/taunts`) or free text: `POST /api/taunt {
 ## Not done yet
 - **Push notifications / turn reminders**: out of scope for this pass. The `moves` table is where a "Bob made his move" hook would go.
 - Payments (RevenueCat) are not wired. `premium` is only set by invite codes.
-- Parent consent email/verification for teen accounts: we store the parent email as owner, but nothing emails the parent yet.
 - Old prototype data (`pw_state` JSON blob) is **not migrated**. Those accounts had no birthdates, so the pilot starts fresh. The old table is left alone.
 - Reports go into the `reports` table. There's no admin review screen yet.
 

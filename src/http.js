@@ -4,7 +4,7 @@ const PUBLIC=path.join(__dirname,'..','public');
 const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.png':'image/png','.svg':'image/svg+xml'};
 const send=(res,s,o)=>{res.writeHead(s,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(o))};
 // Pages: / is the welcome page, /play (and anything under /play/) is the game app. Old /index.html links go to /play.
-function page(p){if(p==='/'||p==='/welcome')return'landing.html';if(p==='/play'||p==='/play/'||p.startsWith('/play/')&&!path.extname(p))return'play.html';return null}
+function page(p){if(p==='/'||p==='/welcome')return'landing.html';if(p==='/rules'||p==='/privacy')return'rules.html';if(p==='/play'||p==='/play/'||p.startsWith('/play/')&&!path.extname(p))return'play.html';return null}
 function serveStatic(u,res){if(u.pathname==='/index.html'){res.writeHead(301,{Location:'/play'+u.search});return res.end()}
  let rel;try{rel=page(u.pathname)||path.normalize(decodeURIComponent(u.pathname))}catch(e){return send(res,400,{})}const f=path.join(PUBLIC,rel);
  if(!f.startsWith(PUBLIC))return send(res,403,{});

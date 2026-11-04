@@ -96,3 +96,6 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS premium_source text;
 ALTER TABLE taunts ADD COLUMN IF NOT EXISTS body text;
 ALTER TABLE taunts ALTER COLUMN taunt_key DROP NOT NULL;
 ALTER TABLE reports ADD COLUMN IF NOT EXISTS message text;
+
+-- added: signup is a "13+ and rules" checkbox; we store when it was accepted. No birthdate or parent email is collected any more.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS accepted_rules_at timestamptz;

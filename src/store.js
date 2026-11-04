@@ -1,6 +1,6 @@
 // Data access: users, circles, games (versioned), stats, invites, safety tables.
 const db=require('./db'),{id,code,hash,BOT}=require('./util'),{TYPES}=require('./games');
-const userCols='id,name,kind,email,birthdate,owner_email,premium,pilot,premium_source,created_at';
+const userCols='id,name,kind,email,accepted_rules_at,premium,pilot,premium_source,created_at';
 async function ensureBot(){await db.q(`INSERT INTO users(id,name,kind) VALUES($1,$2,'bot') ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name`,[BOT,'Plunger Pete 🪠'])}
 const userByToken=t=>t?db.one(`SELECT ${userCols} FROM users WHERE token_hash=$1 AND kind<>'bot'`,[hash(t)]):null;
 const userById=i=>db.one(`SELECT ${userCols} FROM users WHERE id=$1`,[i]);
@@ -11,10 +11,10 @@ async function createGuest(){const u={id:id(),tok:id(16)};await db.q(`INSERT INT
 // (see isPremium in routes.js); invite-code premium/pilot (users.premium / users.pilot) is separate and permanent.
 const openPremium=()=>/^(1|true|yes|on)$/i.test(process.env.OPEN_PREMIUM||'');
 // Creates a full account. Claims the invite code (single use) in the same transaction.
-async function createUser({name,birthdate,email=null,authId=null,ownerEmail=null,inviteCode=null}){
+async function createUser({name,email=null,authId=null,inviteCode=null,acceptedRules=false}){
  const uid=id(),tok=id(16);
  try{await db.tx(async c=>{
-  await c.query(`INSERT INTO users(id,name,kind,token_hash,email,auth_id,birthdate,owner_email,premium_source) VALUES($1,$2,'user',$3,$4,$5,$6,$7,$8)`,[uid,name,hash(tok),email,authId,birthdate,ownerEmail,openPremium()?'open_pilot':null]);
+  await c.query(`INSERT INTO users(id,name,kind,token_hash,email,auth_id,accepted_rules_at,premium_source) VALUES($1,$2,'user',$3,$4,$5,$6,$7)`,[uid,name,hash(tok),email,authId,acceptedRules?new Date():null,openPremium()?'open_pilot':null]);
   if(inviteCode){const r=await c.query(`UPDATE invite_codes SET used_by=$1,used_at=now() WHERE code=$2 AND used_by IS NULL RETURNING kind`,[uid,inviteCode]);
    if(!r.rows[0]){const e=Error('Invite code is invalid or already used');e.status=400;throw e}
    const pilot=r.rows[0].kind==='pilot';await c.query('UPDATE users SET premium=true,pilot=$1,invite_code=$2,premium_source=$4 WHERE id=$3',[pilot,inviteCode,uid,pilot?'invite_pilot':'invite'])}})}

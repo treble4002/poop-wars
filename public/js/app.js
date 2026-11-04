@@ -17,19 +17,17 @@ function prefill(){if(INVITE){if(window.ic&&!ic.value)ic.value=INVITE;if(window.
 new MutationObserver(prefill).observe(document.getElementById('app'),{childList:true});
 async function signup(){CFG=CFG||await api('config');
  const guest=`<div class=card><b>Just want to play?</b><br><small>Play Plunger Pete right now, no account needed. Scores are not saved.</small><br><button class=alt onclick="doGuest()">🪠 Play as guest</button></div>`;
- if(CFG.auth==='email-otp'&&!TICKET){$.innerHTML=`<div class="card big">Head-to-head mini games for your bathroom break.</div><div class=card><label>Your email (or your parent's, if you're under 18)</label><input id=em type=email autocomplete=email><button onclick="sendCode()">Email me a code</button>
+ if(CFG.auth==='email-otp'&&!TICKET){$.innerHTML=`<div class="card big">Head-to-head mini games for your bathroom break.</div><div class=card><label>Your email</label><input id=em type=email autocomplete=email><button onclick="sendCode()">Email me a code</button>
   ${INVITE?`<small>🎟️ Invite code <b>${INVITE}</b> will be applied after you confirm your email.</small>`:''}<div id=codebox style="display:none"><label>6-digit code</label><input id=oc inputmode=numeric maxlength=6><button onclick="checkCode()">Sign in</button></div></div>${guest}`;return}
  $.innerHTML=`<div class="card big">Head-to-head mini games for your bathroom break.</div><div class=card>
  <label>Silly name</label><input id=n placeholder="e.g. Sir Plops" maxlength=20>
- <label>Birthdate</label><input id=bd type=date>
- <div id=pbox style="display:none"><label>Parent or guardian email (they own the account)</label><input id=pe type=email></div>
  <label>Invite code (optional)</label><input id=ic maxlength=8 style="text-transform:uppercase">
- <button onclick="doSignup()">Enter the stall 🚪</button><br><small class=muted>You must be 13 or older. Ages 13–17 need a parent email.</small></div>${guest}`;
- bd.onchange=()=>{const a=(Date.now()-new Date(bd.value))/31557600000;pbox.style.display=a>=13&&a<18?'block':'none'}}
+ <label style="display:flex;gap:10px;align-items:flex-start;font-weight:600"><input id=ar type=checkbox style="width:24px;height:24px;flex:none;margin-top:2px"><span>I certify I am 13 or older and agree to the <a href="/rules" target="_blank">Poop Wars rules</a>.</span></label>
+ <button onclick="doSignup()">Enter the stall 🚪</button></div>${guest}`}
 async function sendCode(){try{await api('auth/start',{email:em.value});codebox.style.display='block'}catch(e){err(e)}}
 async function checkCode(){try{const r=await api('auth/verify',{email:em.value,code:oc.value});if(r.token){T=r.token;localStorage.pwToken=T;return go('home')}TICKET=r.ticket;signup()}catch(e){err(e)}}
 async function doGuest(){try{const u=await api('guest',{});T=u.token;localStorage.pwToken=T;go('home')}catch(e){err(e)}}
-async function doSignup(){try{const u=await api('signup',{name:n.value,birthdate:bd.value,parentEmail:pe.value||undefined,inviteCode:ic.value||undefined,ticket:TICKET||undefined});T=u.token;TICKET=null;localStorage.pwToken=T;go('home')}catch(e){err(e)}}
+async function doSignup(){if(!ar.checked)return alert('Tick the box to confirm you are 13 or older and agree to the rules.');try{const u=await api('signup',{name:n.value,acceptRules:ar.checked,inviteCode:ic.value||undefined,ticket:TICKET||undefined});T=u.token;TICKET=null;localStorage.pwToken=T;go('home')}catch(e){err(e)}}
 async function redeem(){try{await api('redeem',{code:rc.value});go('home')}catch(e){err(e)}}
 function logout(){localStorage.removeItem('pwToken');T=null;go('home')}
 async function home(){const gs=await api('games'),turns=gs.filter(g=>g.myTurn).length;

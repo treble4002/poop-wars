@@ -1,0 +1,23 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Poop Wars rules &amp; privacy</title><meta name="theme-color" content="#7b4a26">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💩</text></svg>">
+<style>body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f6efe3;color:#3b2616;line-height:1.5}
+main{max-width:680px;margin:auto;padding:22px 18px 40px}h1{font-size:clamp(28px,8vw,40px);margin:8px 0}h2{margin:26px 0 8px;font-size:22px}
+.card{background:#fff;border-radius:18px;padding:16px 18px;box-shadow:0 2px 8px #0002;margin:12px 0}a{color:#7b4a26;font-weight:700}li{margin:6px 0}</style></head><body><main>
+<a href="/">← Poop Wars</a>
+<h1>📜 Rules &amp; privacy</h1>
+<div class="card"><h2>The rules</h2><ol>
+<li><b>13 and up only.</b> You must be 13 or older to make an account. When you sign up, you confirm this.</li>
+<li><b>Be kind.</b> Trash talk is for silly fun. No slurs, threats, bullying, sexual stuff or sharing personal info. Our filter blocks the worst words, and breaking the rules can get you removed.</li>
+<li><b>Trash talk is wiped after each game.</b> Messages are deleted when the game ends, and anything older than 24 hours is deleted too.</li>
+<li><b>Report abuse.</b> Tap 🚩 on a message to report it. We keep a copy of only that message so we can review it. You can also block a player, and they can't challenge or message you after that.</li>
+</ol></div>
+<div class="card"><h2>Privacy</h2><ul>
+<li>We store your silly name, your email (used to sign in), your games and scores, and the time you agreed to these rules.</li>
+<li>We don't ask for your birthday. There are no ads, no trackers and no analytics.</li>
+<li><b>Delete your account:</b> <span id="contact">contact the Poop Wars team from the email you signed up with</span> and ask us to delete it. We'll remove your account and your data.</li>
+</ul></div>
+<p><a href="/play">▶ Back to the games</a></p>
+</main>
+<script>fetch('/api/config').then(r=>r.json()).then(c=>{if(c.contact){var a=document.createElement('a');a.href='mailto:'+c.contact+'?subject=Delete%20my%20Poop%20Wars%20account';a.textContent='email '+c.contact;var s=document.getElementById('contact');s.textContent='';s.appendChild(a);s.append(' from the address you signed up with')}}).catch(function(){})</script>
+</body></html>

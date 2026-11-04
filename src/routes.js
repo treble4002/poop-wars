@@ -8,15 +8,15 @@ const rows=(list,type,statsOf)=>list.map(u=>{const st=statsOf[u.id]||{stats:{},b
  if(type==='follow')r.best=st.best.follow||null;return r}).sort((a,b)=>b.w-a.w||a.l-b.l||a.name.localeCompare(b.name));
 async function gameView(g,uid){const o=E.view(g,uid,await S.namesFor(g.players));
  if(!o.vsBot)o.taunts=(await S.tauntsFor(g.id)).map(t=>({id:t.id,from:t.from_id,key:t.taunt_key,text:t.body!=null?t.body:S.PRESET_TAUNTS[t.taunt_key]}));return o}
-async function profileChecks(b){const a=A.ageFrom(b.birthdate);if(a.error)return{err:fail(400,a.error)};
- if(a.age<13)return{err:fail(403,'Sorry, Poop Wars is for ages 13 and up.')};
- let owner=null;if(a.age<18){if(!A.validEmail(b.parentEmail))return{err:fail(400,'Ages 13-17 need a parent or guardian email. The parent owns the account.')};owner=String(b.parentEmail).trim().toLowerCase()}
+// Signup gate: the player must tick "I certify I am 13 or older and agree to the Poop Wars rules". Checked here on the server.
+const RULES_TEXT='I certify I am 13 or older and agree to the Poop Wars rules.';
+async function profileChecks(b){if(b.acceptRules!==true)return{err:fail(400,'Please confirm you are 13 or older and agree to the rules.')};
  const name=String(b.name||'').trim().slice(0,20);if(!name)return{err:fail(400,'Name required')};
- const inviteCode=b.inviteCode?String(b.inviteCode).toUpperCase().trim():null;return{name,birthdate:b.birthdate,owner,inviteCode,age:a.age}}
+ const inviteCode=b.inviteCode?String(b.inviteCode).toUpperCase().trim():null;return{name,inviteCode}}
 const F=require('./filter');const TALK_MAX=60,TALK_GAP_MS=Number(process.env.TALK_GAP_MS||3000),lastTalk=new Map();
 const P={premium:true},PUB={public:true},ANY={};   // route flags
 const routes={
- 'GET /api/config':[PUB,async()=>[200,{auth:A.supabaseEnabled()?'email-otp':'dev-name',taunts:S.PRESET_TAUNTS,minAge:13,openPremium:S.openPremium()}]],
+ 'GET /api/config':[PUB,async()=>[200,{auth:A.supabaseEnabled()?'email-otp':'dev-name',taunts:S.PRESET_TAUNTS,minAge:13,rulesText:RULES_TEXT,contact:process.env.CONTACT_EMAIL||null,openPremium:S.openPremium()}]],
  // Free tier: play vs Plunger Pete with no account and no saved scores.
  'POST /api/guest':[PUB,async()=>[200,await S.createGuest()]],
  // Supabase email code flow
@@ -26,11 +26,10 @@ const routes={
   const email=String(b.email||'').trim().toLowerCase(),v=await A.verifyCode(email,String(b.code||'').trim());
   const u=await S.userByAuth(v.authId);if(u)return[200,{id:u.id,token:await S.newSession(u.id)}];
   return[200,{needsProfile:true,ticket:await S.addPending(v.authId,v.email)}]}],
- // Create the account. Birthdate is checked here on the server: under 13 blocked; 13-17 need a parent email (owner).
+ // Create the account. Requires acceptRules:true (13+ and rules); the acceptance time is stored.
  'POST /api/signup':[PUB,async({b})=>{const p=await profileChecks(b);if(p.err)return p.err;let email=null,authId=null;
   if(A.supabaseEnabled()){const t=await S.takePending(b.ticket);if(!t)return fail(401,'Verify your email code first');email=t.email;authId=t.auth_id}
-  const owner=p.owner||email;
-  const r=await S.createUser({name:p.name,birthdate:p.birthdate,email,authId,ownerEmail:owner,inviteCode:p.inviteCode});const u=await S.userById(r.id);
+  const r=await S.createUser({name:p.name,email,authId,inviteCode:p.inviteCode,acceptedRules:true});const u=await S.userById(r.id);
   return[200,{id:r.id,token:r.token,name:u.name,premium:isPremium(u),pilot:u.pilot,premiumSource:isPremium(u)?(u.premium||u.pilot?u.premium_source||'invite':'open_pilot'):null}]}],
  'POST /api/redeem':[ANY,async({b,u})=>{if(u.kind!=='user')return fail(403,'Make an account first');
   return await S.redeemInvite(u.id,String(b.code||'').toUpperCase().trim())?[200,{ok:true}]:fail(400,'Invite code is invalid or already used')}],

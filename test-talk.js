@@ -5,8 +5,9 @@ let f=0;const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m);if(!c)f++};const zz=
 (async()=>{await db.init();await S.ensureBot();process.env.OPEN_PREMIUM='true';
  const srv=create().listen(0);const B=`http://localhost:${srv.address().port}/api/`;
  const api=async(p,tok,body)=>{const r=await fetch(B+p,{method:body?'POST':'GET',headers:{'Content-Type':'application/json','x-token':tok||''},body:body&&JSON.stringify(body)});const j=await r.json();return r.ok?j:{error:j.error,status:r.status}};
- const su=n=>api('signup',null,{name:n,birthdate:'2000-01-01'});const A=await su('Ann'+Date.now()%1e5),Bo=await su('Bob'+Date.now()%1e5);
+ const su=n=>api('signup',null,{name:n,acceptRules:true});const A=await su('Ann'+Date.now()%1e5),Bo=await su('Bob'+Date.now()%1e5);
  ok(A.premium&&Bo.premium,'Both players premium (open pilot)');
+ { const r=await db.one('SELECT accepted_rules_at,birthdate,owner_email FROM users WHERE id=$1',[A.id]);ok(r.accepted_rules_at&&Date.now()-new Date(r.accepted_rules_at)<60000,'Rules acceptance time stored');ok(r.birthdate==null&&r.owner_email==null,'No birthdate or parent email stored'); }
  const c=await api('circles',A.token,{name:'Talkers'});await api('circles/join',Bo.token,{code:c.code});
  const ch=()=>api('challenge',A.token,{type:'ttt',opponentId:Bo.id,circleId:c.id});
  let g=await ch();ok(g.id,'Game started');

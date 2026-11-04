@@ -15,15 +15,13 @@ async function playOut(tok,g){g=await api('game?id='+g.id,tok);for(let n=0;n<200
  // ---- accounts, age gate, invites, premium ----
  const inv=await api('admin/invites',null,{count:4,kind:'pilot'},{'x-admin-token':process.env.ADMIN_TOKEN||'test-admin'});
  ok(inv.codes&&inv.codes.length===4,'Admin: generated 4 pilot invite codes');const[ic1,ic2,ic3,ic4]=inv.codes||[];
- const yrs=n=>{const d=new Date();d.setUTCFullYear(d.getUTCFullYear()-n);d.setUTCDate(d.getUTCDate()-1);return d.toISOString().slice(0,10)};
- ok((await api('signup',null,{name:'Kid',birthdate:yrs(12)})).status===403,'Age gate: under-13 blocked on the server');
- ok((await api('signup',null,{name:'NoBday'})).status===400,'Age gate: birthdate required');
- ok((await api('signup',null,{name:'Teen',birthdate:yrs(15)})).status===400,'Teen (15) without parent email rejected');
- const teen=await api('signup',null,{name:'Teen',birthdate:yrs(15),parentEmail:'mom@example.com',inviteCode:ic3});ok(teen.token&&teen.pilot,'Teen with parent email + pilot invite accepted');
- const A=await api('signup',null,{name:'Alice',birthdate:yrs(30),inviteCode:ic1}),Bo=await api('signup',null,{name:'Bob',birthdate:yrs(40),inviteCode:ic2});
+ ok((await api('signup',null,{name:'NoBox'})).status===400,'Signup without the 13+/rules checkbox rejected on the server');
+ ok((await api('signup',null,{name:'Truthy',acceptRules:'yes'})).status===400,'Checkbox must be literally true');
+ const teen=await api('signup',null,{name:'Teen',acceptRules:true,inviteCode:ic3});ok(teen.token&&teen.pilot,'Signup with checkbox + pilot invite accepted (no birthdate/parent email)');
+ const A=await api('signup',null,{name:'Alice',acceptRules:true,inviteCode:ic1}),Bo=await api('signup',null,{name:'Bob',acceptRules:true,inviteCode:ic2});
  ok(A.premium&&A.pilot&&Bo.pilot,'Pilot invite grants premium + pilot flag');
- ok((await api('signup',null,{name:'Eve',birthdate:yrs(30),inviteCode:ic1})).error,'Invite code is single-use');
- const F=await api('signup',null,{name:'Freddie',birthdate:yrs(25)});ok(F.token&&!F.premium,'Signup without invite = free tier');
+ ok((await api('signup',null,{name:'Eve',acceptRules:true,inviteCode:ic1})).error,'Invite code is single-use');
+ const F=await api('signup',null,{name:'Freddie',acceptRules:true});ok(F.token&&!F.premium,'Signup without invite = free tier');
  const guest=await api('guest',null,{});
  for(const[who,tok]of[['guest',guest.token],['free user',F.token]]){
   ok((await api('circles',tok,{name:'X'})).status===402&&(await api('scores',tok)).status===402&&(await api('trophies',tok)).status===402,`Premium gate: ${who} blocked from circles/scores/trophies`);
@@ -98,6 +96,7 @@ async function playOut(tok,g){g=await api('game?id='+g.id,tok);for(let n=0;n<200
  await api('unblock',Bo.token,{userId:A.id});ok(!(await ch('ttt')).error,'Unblock restores challenges');
  // Pages
  const R=B.replace(/\/api\/$/,''),pg=async(p,o)=>{const r=await fetch(R+p,{redirect:'manual',...o});return{s:r.status,t:await r.text(),h:r.headers}};
+ { const r=await pg('/rules');ok(r.s===200&&/13 or older/.test(r.t)&&/wiped after each game/.test(r.t)&&/Report abuse/.test(r.t)&&/[Dd]elete your account/.test(r.t),'Rules/privacy page'); const L=await pg('/');ok(/href="\/rules"/.test(L.t),'Footer links rules'); const J=await pg('/js/app.js');ok(/href="\/rules"/.test(J.t)&&/acceptRules/.test(J.t)&&!/birthdate/.test(J.t),'Signup has rules checkbox + link, no birthdate'); }
  { const a=await pg('/');ok(a.s===200&&/Six games/.test(a.t),'Welcome page at /');
   const b=await pg('/play');ok(b.s===200&&/\/js\/app\.js/.test(b.t),'Game app at /play');
   ok((await pg('/play/?invite=AB12')).s===200&&(await pg('/play/circle/x')).s===200,'Deep links under /play serve the app');

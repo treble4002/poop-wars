@@ -59,9 +59,9 @@ footer{background:#3b2616;color:#e9dcc9;text-align:center;padding:24px 18px 34px
 <div id="openprem" hidden style="margin-top:8px;font-weight:700">🎉 Pilot bonus: every new account gets premium free right now.</div>
 <form action="/play" method="get" onsubmit="var v=this.invite.value.toUpperCase().replace(/[^A-Z0-9]/g,'');if(!v){event.preventDefault();this.invite.focus()}else this.invite.value=v">
 <input name="invite" maxlength="8" placeholder="CODE" autocomplete="off" aria-label="Invite code"><button class="btn sm" type="submit">Use it →</button></form></div></section>
-<section style="padding-top:4px"><p class="age">🎂 Poop Wars is for ages <b>13 and up</b>. Players aged 13–17 need a parent or guardian's email to sign up.</p>
+<section style="padding-top:4px"><p class="age">🎂 Poop Wars is for ages <b>13 and up</b>. Be kind, and read the <a href="/rules">rules</a>.</p>
 <p style="text-align:center;margin-top:22px"><a class="btn" href="/play">▶ Play now</a></p></section>
 </main>
-<footer>💩 Poop Wars 🚽<br>Silly, friendly bathroom-break games. No ads, no trackers.<br><a href="/play">Play</a> · <a href="#games">Games</a> · <a href="#how">How it works</a><br><span style="opacity:.7">© 2026 Poop Wars</span></footer>
+<footer>💩 Poop Wars 🚽<br>Silly, friendly bathroom-break games. No ads, no trackers.<br><a href="/play">Play</a> · <a href="#games">Games</a> · <a href="#how">How it works</a> · <a href="/rules">Rules &amp; privacy</a><br><span style="opacity:.7">© 2026 Poop Wars</span></footer>
 <script>fetch('/api/config').then(r=>r.json()).then(c=>{if(c.openPremium)document.getElementById('openprem').hidden=false}).catch(()=>{})</script>
 </body></html>
