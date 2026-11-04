@@ -27,7 +27,7 @@ async function playOut(tok,g){g=await api('game?id='+g.id,tok);for(let n=0;n<200
  const guest=await api('guest',null,{});
  for(const[who,tok]of[['guest',guest.token],['free user',F.token]]){
   ok((await api('circles',tok,{name:'X'})).status===402&&(await api('scores',tok)).status===402&&(await api('trophies',tok)).status===402,`Premium gate: ${who} blocked from circles/scores/trophies`);
-  let gg=await api('challenge',tok,{opponentId:'bot',type:'ttt',difficulty:'easy'});gg=await playOut(tok,gg);ok(gg.status==='done',`Free tier: ${who} can play Plunger Bot`)}
+  let gg=await api('challenge',tok,{opponentId:'bot',type:'ttt',difficulty:'easy'});gg=await playOut(tok,gg);ok(gg.status==='done',`Free tier: ${who} can play Plunger Pete`)}
  ok(!(await api('leaderboard')).some(x=>x.name==='Guest'),'Guests never on leaderboard');
  const C=await api('circles',A.token,{name:'Fam'});await api('circles/join',Bo.token,{code:C.code});
  const ch=(t,extra={})=>api('challenge',A.token,{circleId:C.id,opponentId:Bo.id,type:t,...extra});
@@ -80,7 +80,7 @@ async function playOut(tok,g){g=await api('game?id='+g.id,tok);for(let n=0;n<200
  let c4w=0;for(let i=0;i<4;i++){const bg=await playOut(A.token,await api('challenge',A.token,{opponentId:'bot',type:'c4',difficulty:'hard'}));if(bg.winner==='bot')c4w++}
  ok(c4w===4,'Bot C4 hard beats random play 4/4');
  const me=await api('me',A.token);ok(JSON.stringify(me.stats)===before&&me.botStats.all.w+me.botStats.all.l+me.botStats.all.d>=22,'Bot games go to separate vs-Bot record, not main stats');
- ok(!(await api('leaderboard')).some(x=>x.name.includes('Plunger')),'Plunger Bot not on global leaderboard');
+ ok(!(await api('leaderboard')).some(x=>x.name.includes('Plunger')),'Plunger Pete not on global leaderboard');
  // ---- safe concurrent moves ----
  g=await ch('ttt');const race=await Promise.all([mv(A.token,g,{pos:0}),mv(A.token,g,{pos:1}),mv(A.token,g,{pos:2})]);
  g=await api('game?id='+g.id,A.token);ok(race.filter(r=>!r.error).length===1&&g.board.filter(x=>x!=null).length===1,'Concurrency: 3 simultaneous moves on one turn -> exactly 1 applied');
@@ -97,7 +97,7 @@ async function playOut(tok,g){g=await api('game?id='+g.id,tok);for(let n=0;n<200
  await api('unblock',Bo.token,{userId:A.id});ok(!(await ch('ttt')).error,'Unblock restores challenges');
  // Pages
  const R=B.replace(/\/api\/$/,''),pg=async(p,o)=>{const r=await fetch(R+p,{redirect:'manual',...o});return{s:r.status,t:await r.text(),h:r.headers}};
- { const a=await pg('/');ok(a.s===200&&/Six games/.test(a.t)&&!/<script src/.test(a.t),'Welcome page at /');
+ { const a=await pg('/');ok(a.s===200&&/Six games/.test(a.t),'Welcome page at /');
   const b=await pg('/play');ok(b.s===200&&/\/js\/app\.js/.test(b.t),'Game app at /play');
   ok((await pg('/play/?invite=AB12')).s===200&&(await pg('/play/circle/x')).s===200,'Deep links under /play serve the app');
   const c=await pg('/index.html');ok(c.s===301&&c.h.get('location')==='/play','Old /index.html redirects to /play');

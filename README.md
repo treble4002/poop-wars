@@ -16,6 +16,7 @@ Without `DATABASE_URL` the server uses **pg-mem** (in-memory Postgres emulator).
 | `DATABASE_URL` | prod | Postgres connection string. Tables are created on boot (`src/schema.sql`). |
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | prod | Project URL (any path such as /rest/v1/ is stripped) and the anon or `sb_publishable_` key. Turns on email-code (OTP) login. If either is missing, the dev name-only signup is used. |
 | `ADMIN_TOKEN` | optional | Enables `POST /api/admin/invites` (header `x-admin-token`). Unset = route hidden. |
+| `OPEN_PREMIUM` | optional | `true` = every new signup gets premium, tagged `premium_source='open_pilot'`. That premium only counts while the flag is on. Invite-code premium/pilot users keep theirs either way. |
 | `PORT` | optional | Default 3737. Render sets it. |
 
 Supabase setup: Auth → Providers → Email on; edit the "Magic Link" email template to show the code with `{{ .Token }}` so users get a 6-digit code.
@@ -31,7 +32,7 @@ Supabase setup: Auth → Providers → Email on; edit the "Magic Link" email tem
 
 ## Accounts, age gate, premium
 - Signup needs a birthdate. The **server** rejects under-13s (403, nothing stored). Ages 13–17 must give a parent email, saved as `owner_email` (the account owner).
-- Free tier: `POST /api/guest` (no account) or a free account can play Plunger Bot. No saved scores, circles, trophies or arena.
+- Free tier: `POST /api/guest` (no account) or a free account can play Plunger Pete. No saved scores, circles, trophies or arena.
 - Premium (`users.premium`) or pilot (`users.pilot`, lifetime full premium) is required on: circles (create/join/view/leave), friend challenges, `/api/scores`, `/api/trophies`, `/api/taunt`.
 - Flags are set by a **single-use invite code** at signup (or later via `POST /api/redeem`). Make codes:
   `DATABASE_URL=... node scripts/make-invites.js 20 pilot "family"` (kinds: `pilot` or `premium`).
@@ -47,4 +48,4 @@ Preset taunts only (`GET /api/taunts`); `POST /api/taunt {gameId,key}`; `POST /a
 - Reports go into the `reports` table. There's no admin review screen yet.
 
 ## Games
-Tic-Tac-Toilet, Connect Four-Flush, Follow the Flush, Stall Wars, Sink the Stink, Hang-Ten TP. Each one can be played vs Plunger Bot 🪠 (Easy/Hard). Bot games only count on the separate vs-Bot record.
+Tic-Tac-Toilet, Connect Four-Flush, Follow the Flush, Stall Wars, Sink the Stink, Hang-Ten TP. Each one can be played vs Plunger Pete 🪠 (Easy/Hard). Games vs Plunger Pete only count on the separate vs-Bot record.

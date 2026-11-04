@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Poop Wars 💩 Head-to-head toilet arcade</title>
-<meta name="description" content="Six quick head-to-head mini games for your bathroom break. Challenge friends in your circle or take on the Plunger Bot.">
+<meta name="description" content="Six quick head-to-head mini games for your bathroom break. Challenge friends in your circle or take on the Plunger Pete.">
 <meta name="theme-color" content="#7b4a26">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💩</text></svg>">
 <style>
@@ -39,7 +39,7 @@ footer{background:#3b2616;color:#e9dcc9;text-align:center;padding:24px 18px 34px
  <circle cx="220" cy="78" r="38" fill="#7b4a26"/><text x="220" y="90" font-size="34" font-weight="900" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif">VS</text>
  <text x="150" y="44" font-size="26">💨</text><text x="268" y="44" font-size="26">🫧</text>
 </svg>
-<div class="cta"><a class="btn" href="/play">▶ Play now</a><div class="small" style="margin-top:12px">Free to play Plunger Bot 🪠 · no account needed</div></div>
+<div class="cta"><a class="btn" href="/play">▶ Play now</a><div class="small" style="margin-top:12px">Free to play Plunger Pete 🪠 · no account needed</div></div>
 </div></header>
 <main class="wrap">
 <section id="games"><h2>Six games, one throne 👑</h2><div class="grid">
@@ -53,13 +53,15 @@ footer{background:#3b2616;color:#e9dcc9;text-align:center;padding:24px 18px 34px
 <section id="how"><h2>How it works</h2><div class="how">
 <div class="card"><div class="e">👯</div><h3>Make a circle</h3>Start a circle and share its code with friends or family. Everyone in it can challenge each other and climb your circle's leaderboard.</div>
 <div class="card"><div class="e">⏳</div><h3>Take your turn</h3>Every game is turn-based. Make your move whenever you've got a minute. Your rival goes next on their next break.</div>
-<div class="card"><div class="e">🪠</div><h3>Play the Plunger Bot</h3>Nobody around? Take on the Plunger Bot on Easy or Hard any time, no account needed.</div>
+<div class="card"><div class="e">🪠</div><h3>Play the Plunger Pete</h3>Nobody around? Take on the Plunger Pete on Easy or Hard any time, no account needed.</div>
 </div></section>
-<section><div class="invite"><h2 style="color:#fff;margin-bottom:4px">🎟️ Have an invite code?</h2><div>Pilot invites unlock circles, saved scores, trophies and the trash talk arena.</div>
+<section><div class="invite"><h2 style="color:#fff;margin-bottom:4px">🎟️ Have an invite code? <small style="font-size:60%;opacity:.8">(optional)</small></h2><div>You don't need one to play or sign up. If a friend gave you a pilot code, use it for lifetime premium: circles, saved scores, trophies and the trash talk arena.</div>
+<div id="openprem" hidden style="margin-top:8px;font-weight:700">🎉 Pilot bonus: every new account gets premium free right now.</div>
 <form action="/play" method="get" onsubmit="var v=this.invite.value.toUpperCase().replace(/[^A-Z0-9]/g,'');if(!v){event.preventDefault();this.invite.focus()}else this.invite.value=v">
 <input name="invite" maxlength="8" placeholder="CODE" autocomplete="off" aria-label="Invite code"><button class="btn sm" type="submit">Use it →</button></form></div></section>
 <section style="padding-top:4px"><p class="age">🎂 Poop Wars is for ages <b>13 and up</b>. Players aged 13–17 need a parent or guardian's email to sign up.</p>
 <p style="text-align:center;margin-top:22px"><a class="btn" href="/play">▶ Play now</a></p></section>
 </main>
 <footer>💩 Poop Wars 🚽<br>Silly, friendly bathroom-break games. No ads, no trackers.<br><a href="/play">Play</a> · <a href="#games">Games</a> · <a href="#how">How it works</a><br><span style="opacity:.7">© 2026 Poop Wars</span></footer>
+<script>fetch('/api/config').then(r=>r.json()).then(c=>{if(c.openPremium)document.getElementById('openprem').hidden=false}).catch(()=>{})</script>
 </body></html>

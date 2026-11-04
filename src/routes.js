@@ -1,7 +1,8 @@
 // HTTP API routes. Each handler gets {b (JSON body), u (user or null), q (query)} and returns [status, body].
 const S=require('./store'),A=require('./auth'),E=require('./games'),{id,BOT}=require('./util');
 const{TYPES}=E;
-const isPremium=u=>!!(u&&(u.premium||u.pilot));
+// Premium: invite-code premium/pilot always; open-pilot signups only while OPEN_PREMIUM is on.
+const isPremium=u=>!!(u&&u.kind==='user'&&(u.premium||u.pilot||(u.premium_source==='open_pilot'&&S.openPremium())));
 const fail=(s,m)=>[s,{error:m}];
 const rows=(list,type,statsOf)=>list.map(u=>{const st=statsOf[u.id]||{stats:{},best:{}},s=st.stats[type]||{w:0,l:0,d:0},r={id:u.id,name:u.name,...s};
  if(type==='follow')r.best=st.best.follow||null;return r}).sort((a,b)=>b.w-a.w||a.l-b.l||a.name.localeCompare(b.name));
@@ -14,8 +15,8 @@ async function profileChecks(b){const a=A.ageFrom(b.birthdate);if(a.error)return
  const inviteCode=b.inviteCode?String(b.inviteCode).toUpperCase().trim():null;return{name,birthdate:b.birthdate,owner,inviteCode,age:a.age}}
 const P={premium:true},PUB={public:true},ANY={};   // route flags
 const routes={
- 'GET /api/config':[PUB,async()=>[200,{auth:A.supabaseEnabled()?'email-otp':'dev-name',taunts:S.PRESET_TAUNTS,minAge:13}]],
- // Free tier: play vs Plunger Bot with no account and no saved scores.
+ 'GET /api/config':[PUB,async()=>[200,{auth:A.supabaseEnabled()?'email-otp':'dev-name',taunts:S.PRESET_TAUNTS,minAge:13,openPremium:S.openPremium()}]],
+ // Free tier: play vs Plunger Pete with no account and no saved scores.
  'POST /api/guest':[PUB,async()=>[200,await S.createGuest()]],
  // Supabase email code flow
  'POST /api/auth/start':[PUB,async({b})=>{if(!A.supabaseEnabled())return fail(501,'Email login not configured on this server (dev mode uses /api/signup)');
@@ -29,10 +30,10 @@ const routes={
   if(A.supabaseEnabled()){const t=await S.takePending(b.ticket);if(!t)return fail(401,'Verify your email code first');email=t.email;authId=t.auth_id}
   const owner=p.owner||email;
   const r=await S.createUser({name:p.name,birthdate:p.birthdate,email,authId,ownerEmail:owner,inviteCode:p.inviteCode});const u=await S.userById(r.id);
-  return[200,{id:r.id,token:r.token,name:u.name,premium:isPremium(u),pilot:u.pilot}]}],
+  return[200,{id:r.id,token:r.token,name:u.name,premium:isPremium(u),pilot:u.pilot,premiumSource:isPremium(u)?(u.premium||u.pilot?u.premium_source||'invite':'open_pilot'):null}]}],
  'POST /api/redeem':[ANY,async({b,u})=>{if(u.kind!=='user')return fail(403,'Make an account first');
   return await S.redeemInvite(u.id,String(b.code||'').toUpperCase().trim())?[200,{ok:true}]:fail(400,'Invite code is invalid or already used')}],
- 'GET /api/me':[ANY,async({u})=>{const prem=isPremium(u),o={id:u.id,name:u.name,kind:u.kind,premium:prem,pilot:u.pilot,circleList:[],stats:{},botStats:{}};
+ 'GET /api/me':[ANY,async({u})=>{const prem=isPremium(u),o={id:u.id,name:u.name,kind:u.kind,premium:prem,pilot:u.pilot,premiumSource:prem?(u.premium||u.pilot?u.premium_source||'invite':'open_pilot'):null,circleList:[],stats:{},botStats:{}};
   if(prem){o.stats=(await S.userStats(u.id)).stats;o.botStats=await S.botStats(u.id);
    o.circleList=await Promise.all((await S.circlesOf(u.id)).map(async c=>({...c,members:(await S.members(c.id)).filter(m=>m.id!==u.id)})))}return[200,o]}],
  // ---- premium: saved scores, trophies, circles, arena ----
@@ -49,7 +50,7 @@ const routes={
   return[200,rows(await S.listUsers(),t,st).filter(x=>x.w+x.l+x.d).slice(0,50)]}],
  'GET /api/taunts':[PUB,async()=>[200,S.PRESET_TAUNTS]],
  'POST /api/taunt':[P,async({b,u})=>{const g=await S.getGame(String(b.gameId||''));if(!g||!g.players.includes(u.id))return fail(404,'Not found');
-  if(!S.PRESET_TAUNTS[b.key])return fail(400,'Pick a preset taunt');const to=g.players.find(p=>p!==u.id);if(to===BOT)return fail(400,'Plunger Bot cannot hear you');
+  if(!S.PRESET_TAUNTS[b.key])return fail(400,'Pick a preset taunt');const to=g.players.find(p=>p!==u.id);if(to===BOT)return fail(400,'Plunger Pete cannot hear you');
   if(await S.isBlocked(u.id,to))return fail(403,'Blocked');if(await S.countTaunts(g.id,u.id)>=20)return fail(429,'That is enough trash talk for one game');
   const r=await S.addTaunt(g.id,u.id,to,b.key);return[200,{id:r.id}]}],
  // ---- safety (any account) ----

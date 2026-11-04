@@ -1,24 +1,27 @@
 // Data access: users, circles, games (versioned), stats, invites, safety tables.
 const db=require('./db'),{id,code,hash,BOT}=require('./util'),{TYPES}=require('./games');
-const userCols='id,name,kind,email,birthdate,owner_email,premium,pilot,created_at';
-async function ensureBot(){await db.q(`INSERT INTO users(id,name,kind) VALUES($1,$2,'bot') ON CONFLICT(id) DO NOTHING`,[BOT,'Plunger Bot 🪠'])}
+const userCols='id,name,kind,email,birthdate,owner_email,premium,pilot,premium_source,created_at';
+async function ensureBot(){await db.q(`INSERT INTO users(id,name,kind) VALUES($1,$2,'bot') ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name`,[BOT,'Plunger Pete 🪠'])}
 const userByToken=t=>t?db.one(`SELECT ${userCols} FROM users WHERE token_hash=$1 AND kind<>'bot'`,[hash(t)]):null;
 const userById=i=>db.one(`SELECT ${userCols} FROM users WHERE id=$1`,[i]);
 const userByAuth=a=>db.one(`SELECT ${userCols} FROM users WHERE auth_id=$1`,[a]);
 async function newSession(uid){const tok=id(16);await db.q('UPDATE users SET token_hash=$1 WHERE id=$2',[hash(tok),uid]);return tok}
 async function createGuest(){const u={id:id(),tok:id(16)};await db.q(`INSERT INTO users(id,name,kind,token_hash) VALUES($1,'Guest','guest',$2)`,[u.id,hash(u.tok)]);return{id:u.id,token:u.tok}}
+// OPEN_PREMIUM=true: every new signup is tagged premium_source='open_pilot'. That premium only counts while the flag is on
+// (see isPremium in routes.js); invite-code premium/pilot (users.premium / users.pilot) is separate and permanent.
+const openPremium=()=>/^(1|true|yes|on)$/i.test(process.env.OPEN_PREMIUM||'');
 // Creates a full account. Claims the invite code (single use) in the same transaction.
 async function createUser({name,birthdate,email=null,authId=null,ownerEmail=null,inviteCode=null}){
  const uid=id(),tok=id(16);
  try{await db.tx(async c=>{
-  await c.query(`INSERT INTO users(id,name,kind,token_hash,email,auth_id,birthdate,owner_email) VALUES($1,$2,'user',$3,$4,$5,$6,$7)`,[uid,name,hash(tok),email,authId,birthdate,ownerEmail]);
+  await c.query(`INSERT INTO users(id,name,kind,token_hash,email,auth_id,birthdate,owner_email,premium_source) VALUES($1,$2,'user',$3,$4,$5,$6,$7,$8)`,[uid,name,hash(tok),email,authId,birthdate,ownerEmail,openPremium()?'open_pilot':null]);
   if(inviteCode){const r=await c.query(`UPDATE invite_codes SET used_by=$1,used_at=now() WHERE code=$2 AND used_by IS NULL RETURNING kind`,[uid,inviteCode]);
    if(!r.rows[0]){const e=Error('Invite code is invalid or already used');e.status=400;throw e}
-   const pilot=r.rows[0].kind==='pilot';await c.query('UPDATE users SET premium=true,pilot=$1,invite_code=$2 WHERE id=$3',[pilot,inviteCode,uid])}})}
+   const pilot=r.rows[0].kind==='pilot';await c.query('UPDATE users SET premium=true,pilot=$1,invite_code=$2,premium_source=$4 WHERE id=$3',[pilot,inviteCode,uid,pilot?'invite_pilot':'invite'])}})}
  catch(e){await db.q('DELETE FROM users WHERE id=$1',[uid]).catch(()=>{});throw e}  // belt-and-braces: pg-mem rollback is not reliable
  return{id:uid,token:tok}}
 async function redeemInvite(uid,inviteCode){return db.tx(async c=>{const r=await c.query(`UPDATE invite_codes SET used_by=$1,used_at=now() WHERE code=$2 AND used_by IS NULL RETURNING kind`,[uid,inviteCode]);
- if(!r.rows[0])return false;await c.query('UPDATE users SET premium=true,pilot=(pilot OR $1),invite_code=$2 WHERE id=$3',[r.rows[0].kind==='pilot',inviteCode,uid]);return true})}
+ if(!r.rows[0])return false;await c.query('UPDATE users SET premium=true,pilot=(pilot OR $1),invite_code=$2,premium_source=CASE WHEN (pilot OR $1) THEN $4 ELSE $5 END WHERE id=$3',[r.rows[0].kind==='pilot',inviteCode,uid,'invite_pilot','invite']);return true})}
 async function createInvites(n,kind='pilot',note=null){const out=[];for(let i=0;i<n;i++){const c=code(8);await db.q('INSERT INTO invite_codes(code,kind,note) VALUES($1,$2,$3)',[c,kind,note]);out.push(c)}return out}
 // pending OTP signups (Supabase verified, profile not yet filled in)
 async function addPending(authId,email){const t=id(16);await db.q('INSERT INTO pending_signups(ticket_hash,auth_id,email,expires_ms) VALUES($1,$2,$3,$4)',[hash(t),authId,email,Date.now()+3600e3]);return t}
@@ -74,6 +77,6 @@ const addTaunt=(gid,from,to,key)=>db.one('INSERT INTO taunts(game_id,from_id,to_
 const tauntsFor=gid=>db.all('SELECT id,from_id,taunt_key,created_at FROM taunts WHERE game_id=$1 ORDER BY id DESC LIMIT 20',[gid]);
 const countTaunts=async(gid,uid)=>Number((await db.one('SELECT count(*) AS n FROM taunts WHERE game_id=$1 AND from_id=$2',[gid,uid])).n);
 const report=(r)=>db.one('INSERT INTO reports(reporter_id,reported_id,game_id,taunt_id,reason) VALUES($1,$2,$3,$4,$5) RETURNING id',[r.reporter,r.reported,r.gameId,r.tauntId,r.reason]);
-module.exports={ensureBot,userByToken,userById,userByAuth,newSession,createGuest,createUser,redeemInvite,createInvites,addPending,takePending,
+module.exports={openPremium,ensureBot,userByToken,userById,userByAuth,newSession,createGuest,createUser,redeemInvite,createInvites,addPending,takePending,
  createCircle,circleByCode,circleById,joinCircle,leaveCircle,members,isMember,circlesOf,insertGame,getGame,gamesOf,mutateGame,namesFor,
  globalStats,userStats,botStats,circleStats,listUsers,PRESET_TAUNTS,isBlocked,block,unblock,addTaunt,tauntsFor,countTaunts,report,TYPES};

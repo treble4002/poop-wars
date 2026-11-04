@@ -88,3 +88,6 @@ CREATE TABLE IF NOT EXISTS reports (
   reason text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- added: where premium came from (invite, invite_pilot, open_pilot)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS premium_source text;

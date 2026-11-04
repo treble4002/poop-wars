@@ -16,7 +16,7 @@ const QS=new URLSearchParams(location.search),INVITE=(QS.get('invite')||'').toUp
 function prefill(){if(INVITE){if(window.ic&&!ic.value)ic.value=INVITE;if(window.rc&&!rc.value)rc.value=INVITE}if(JOIN&&window.cc&&!cc.value)cc.value=JOIN}
 new MutationObserver(prefill).observe(document.getElementById('app'),{childList:true});
 async function signup(){CFG=CFG||await api('config');
- const guest=`<div class=card><b>Just want to play?</b><br><small>Play Plunger Bot right now, no account needed. Scores are not saved.</small><br><button class=alt onclick="doGuest()">🪠 Play as guest</button></div>`;
+ const guest=`<div class=card><b>Just want to play?</b><br><small>Play Plunger Pete right now, no account needed. Scores are not saved.</small><br><button class=alt onclick="doGuest()">🪠 Play as guest</button></div>`;
  if(CFG.auth==='email-otp'&&!TICKET){$.innerHTML=`<div class="card big">Head-to-head mini games for your bathroom break.</div><div class=card><label>Your email (or your parent's, if you're under 18)</label><input id=em type=email autocomplete=email><button onclick="sendCode()">Email me a code</button>
   ${INVITE?`<small>🎟️ Invite code <b>${INVITE}</b> will be applied after you confirm your email.</small>`:''}<div id=codebox style="display:none"><label>6-digit code</label><input id=oc inputmode=numeric maxlength=6><button onclick="checkCode()">Sign in</button></div></div>${guest}`;return}
  $.innerHTML=`<div class="card big">Head-to-head mini games for your bathroom break.</div><div class=card>
@@ -44,7 +44,7 @@ async function games(){const gs=await api('games');
  poll=setInterval(async()=>{const g2=await api('games');if(JSON.stringify(g2.map(g=>g.updated))!==JSON.stringify(gs.map(g=>g.updated)))games()},5000)}
 function pick(t){const x=G[t];
  $.innerHTML=`<div class="card big" style="background:${x.c};color:#fff"><span style="font-size:50px">${x.e}</span><br><b>${x.n}</b><br><small>${HELP[t]}</small></div>
- <h2>🪠 Solo vs Plunger Bot</h2><div class=card><button onclick="ch(null,'bot','${t}','easy')">😌 Easy</button><button onclick="ch(null,'bot','${t}','hard')">😈 Hard</button><br><small>Bot games go on your separate "vs Bot" record, not the rankings.</small></div>
+ <h2>🪠 Solo vs Plunger Pete</h2><div class=card><button onclick="ch(null,'bot','${t}','easy')">😌 Easy</button><button onclick="ch(null,'bot','${t}','hard')">😈 Hard</button><br><small>Games vs Plunger Pete go on your separate "vs Bot" record, not the rankings.</small></div>
  ${!me.premium?'<div class=card>⚔️ Challenging friends is a 👑 premium feature.</div>':`<h2>⚔️ Challenge someone</h2>${t==='hang'?`<div class=card><input id=sw maxlength=12 placeholder="Optional: secret word for them (3–12 letters)"><small>Leave blank and we'll pick a random one.</small></div>`:''}
  ${me.circleList.map(c=>`<div class=card><b>${esc(c.name)}</b>${c.members.map(m=>`<div class=row><span>${esc(m.name)}</span><button class=sm onclick="ch('${c.id}','${m.id}','${t}')">Challenge</button></div>`).join('')||'<br><small>Nobody else here yet. Share code <b>'+c.code+'</b></small>'}</div>`).join('')||'<div class=card>Join or create a circle on the Arcade screen to challenge friends.</div>'}`}`}
 const HELP={ttt:'Get 3 in a row. 🧻 goes first.',c4:'Drop pieces into columns. First to 4 in a row wins.',follow:'Watch the pads light up, then repeat the pattern. It grows by one each round until you slip. Longest pattern wins; tie goes to the faster fingers. You both get the same pattern.',
@@ -61,7 +61,7 @@ async function circle(id,tab='all'){const c=await api('circle?id='+id),rows=c.bo
 async function lb(tab='all'){const l=await api('leaderboard?type='+tab);
  $.innerHTML=`<h2>🌍 Global Throne Rankings</h2><div class=tabs>${['all',...Object.keys(G)].map(t=>`<button class="sm ${t===tab?'on':'alt'}" onclick="go('lb','${t}')">${t==='all'?'Overall':G[t].e+' '+G[t].n}</button>`).join('')}</div>
  <div class=card>${l.map((x,i)=>`<div class=row><span>${['👑','🥈','🥉'][i]||(i+1)+'.'} ${esc(x.name)}</span><span>${rec(x)}</span></div>`).join('')||'Nobody has played this yet.'}</div>
- <div class=card><b>Your vs 🪠 Plunger Bot record</b>${Object.keys(G).map(t=>`<div class=row><span>${G[t].e} ${G[t].n}</span><span>${rec(me.botStats[t])}</span></div>`).join('')}</div>`}
+ <div class=card><b>Your vs 🪠 Plunger Pete record</b>${Object.keys(G).map(t=>`<div class=row><span>${G[t].e} ${G[t].n}</span><span>${rec(me.botStats[t])}</span></div>`).join('')}</div>`}
 async function ch(c,o,t,d){try{const w=window.sw&&sw.value.trim();const g=await api('challenge',{circleId:c,opponentId:o,type:t,difficulty:d,word:t==='hang'&&o!=='bot'?w:undefined});go('game',g.id)}catch(e){err(e)}}
 async function mv(id,b){try{await api('move',{gameId:id,...b});game(id)}catch(e){err(e)}}
 async function game(id){const g=await api('game?id='+id),opp=esc(g.names[1-g.me]),x=G[g.type];
